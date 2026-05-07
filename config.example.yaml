@@ -1,0 +1,18 @@
+# Copy to config.yaml and edit later if needed.
+
+app:
+  database_path: data/workouts.sqlite
+  timezone: Asia/Kolkata
+
+logging:
+  level: INFO
+
+telegram:
+  enabled: false
+  bot_token: ""
+  allowed_chat_id: ""
+
+# Future options:
+# reminders:
+#   enabled: false
+#   daily_time: "20:00"
