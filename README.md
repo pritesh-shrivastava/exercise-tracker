@@ -77,13 +77,86 @@ Mixed log:
 - `bench 5x5 @ 70kg`
 - `20 min incline walk`
 
-## Migration later
+## Migration to another VPS
 
-To move this tracker to another VPS:
+You do **not** need the same Hermes Agent instance to keep this tracker running.
+The important part is the data and the env vars, not the agent.
 
-1. Copy the whole folder
-2. Copy `data/workouts.sqlite`
-3. Keep the same script files
-4. Run the scripts on the new machine
+### What to move
 
-If you later connect Hermes to it, Hermes only needs the path to this folder.
+Copy these pieces to the new VPS:
+
+- the whole repo folder
+- `data/workouts.sqlite` or your latest backup copy
+- your Telegram bot token
+- any `WORKOUT_DB_PATH` setting if you use a custom DB path
+
+### Migration steps
+
+1. **Clone or copy the repo** on the new VPS
+
+```bash
+git clone https://github.com/pritesh-shrivastava/exercise-tracker.git
+cd exercise-tracker
+```
+
+2. **Restore the database**
+
+If you have the old DB file, copy it into:
+
+```bash
+mkdir -p data
+cp /path/to/old/workouts.sqlite data/workouts.sqlite
+```
+
+If you only have a backup file, restore that instead.
+
+3. **Set up Python**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+```
+
+This project uses only the standard library, so there are no extra packages to install.
+
+4. **Set the environment variables**
+
+```bash
+export TELEGRAM_BOT_TOKEN="your-bot-token"
+export TELEGRAM_ALLOWED_CHAT_ID="optional-chat-id"
+export WORKOUT_DB_PATH="data/workouts.sqlite"
+```
+
+5. **Verify the data**
+
+```bash
+python summary.py
+```
+
+6. **Start the Telegram bot**
+
+```bash
+python telegram_bot.py
+```
+
+### If you want it to run as a service
+
+On the new VPS, you can run it with `systemd`, `supervisord`, or a simple `tmux` session.
+A minimal `systemd` service would just need:
+
+- the repo path
+- the venv path
+- `TELEGRAM_BOT_TOKEN`
+- `WORKOUT_DB_PATH`
+
+### Migration checklist
+
+- [ ] repo copied or cloned
+- [ ] database copied
+- [ ] Telegram bot token set
+- [ ] summary works
+- [ ] bot starts and receives messages
+
+If you later connect a different Hermes Agent, it only needs the path to this folder and the env vars above.
