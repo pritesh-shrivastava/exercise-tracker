@@ -38,6 +38,46 @@ python log_workout.py "20 min zone 2 cardio"
 python summary.py
 ```
 
+## Weekly training template
+
+Your plan is aspirational, so the tracker should work even when you only train 3–4 days a week.
+
+### Priority rotation
+
+Follow the next available slot instead of forcing a rigid calendar:
+
+1. Pull — back + biceps
+2. Push — chest + triceps
+3. Legs
+4. Shoulders + abs
+5. Functional / yoga / taichi
+6. Swimming / badminton / walk
+
+### If you train 3 days in a week
+
+- Day 1: Back + Biceps
+- Day 2: Chest + Triceps
+- Day 3: Legs
+
+### If you train 4 days in a week
+
+- Day 1: Back + Biceps
+- Day 2: Chest + Triceps
+- Day 3: Legs
+- Day 4: Shoulders + Abs
+
+### If you train 5 days in a week
+
+- Day 1: Back + Biceps
+- Day 2: Chest + Triceps
+- Day 3: Legs
+- Day 4: Shoulders + Abs
+- Day 5: Functional / yoga / taichi
+
+### Bonus day
+
+- Swimming / badminton / walk
+
 ## Telegram logging
 
 If you want the tracker to log workouts directly from Telegram:
