@@ -16,10 +16,7 @@ Hermes can be the interface, but the data stays separate and portable.
 
 ## Folder layout
 
-- `data/` — SQLite database and future data files
-- `imports/` — optional raw imports
-- `exports/` — CSV / JSON exports
-- `logs/` — app logs
+- `data/` — SQLite database
 - `log_workout.py` — add workouts to the database
 - `summary.py` — show quick stats; `--prs` flag for personal records by body part
 - `tracker/` — core library (parser, normalizer, DB helpers, PR report)
