@@ -28,6 +28,8 @@ Hermes can be the interface, but the data stays separate and portable.
 - `telegram_bot.py` — listen to Telegram and log messages automatically
 - `tracker_core.py` — shared DB/stats helpers
 - `config.example.yaml` — sample settings
+- `design.md` — the current data and variation rules
+- `pr_summary.py` — workout PR summary for Telegram
 
 ## Quick start
 
@@ -106,6 +108,11 @@ Strength:
 - `bench 5x5 @ 70kg`
 - `squats 3x5 @ 100kg`
 - `deadlift 1x5 @ 140kg`
+
+Bench variation examples:
+- `bench incline 3x12 @ 15kg`
+- `bench decline 3x12 @ 15kg`
+- `bench incline and decline 3x15 @ 15kg` → stored as two rows, `incline` and `decline`
 
 Cardio:
 - `20 min zone 2 cardio`

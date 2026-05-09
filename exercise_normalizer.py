@@ -17,6 +17,11 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     raw = _clean(raw_text)
     combined = f"{ex} {raw}".strip()
 
+    if "bench" in combined and ("press" in combined or "presa" in combined):
+        if "barbell" in combined:
+            return "Barbell Bench Press"
+        return "Dumbbell Bench Press"
+
     # Specific typo and synonym fixes first.
     if "should press" in combined:
         return "Shoulder Press"
@@ -56,8 +61,6 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
         return "Horizontal Row"
     if ex == "horizontal leg press":
         return "Horizontal Leg Press"
-    if ex == "bench press incline":
-        return "Bench Press Incline"
     if ex == "chest press vertical":
         return "Chest Press Vertical"
     if ex == "assisted pullup":

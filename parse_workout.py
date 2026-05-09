@@ -15,9 +15,9 @@ from exercise_normalizer import normalize_exercise
 
 
 STRENGTH_RE = re.compile(
-    r"(?P<exercise>[A-Za-z][A-Za-z\s\-]+?)\s+"
-    r"(?P<sets>\d+)x(?P<reps>\d+)"
-    r"(?:\s*@\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?",
+    r"(?P<exercise>.+?)\s+"
+    r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)"
+    r"(?:\s*(?:reps?)?\s*(?:@|with)?\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?",
     re.IGNORECASE,
 )
 
@@ -34,18 +34,39 @@ CARDIO_RE = re.compile(
 class WorkoutRecord:
     workout_type: str
     exercise: str
+    variation: str
     details: str
     raw_text: str
 
 
-def classify_line(line: str) -> WorkoutRecord:
+def detect_variations(exercise: str, text: str) -> list[str]:
+    lowered_text = text.lower()
+    lowered_exercise = exercise.lower()
+    is_bench = "bench" in lowered_text or "bench" in lowered_exercise
+    if not is_bench:
+        return ["default"]
+    if "flat" in lowered_text:
+        return ["flat"]
+    has_incline = "incline" in lowered_text
+    has_decline = "decline" in lowered_text
+    if has_incline and has_decline:
+        return ["incline", "decline"]
+    if has_incline:
+        return ["incline"]
+    if has_decline:
+        return ["decline"]
+    return ["flat"]
+
+
+def classify_line(line: str) -> list[WorkoutRecord]:
     text = line.strip()
     if not text:
-        return WorkoutRecord("note", "", "", line)
+        return [WorkoutRecord("note", "", "flat", "", line)]
 
     m = STRENGTH_RE.search(text)
     if m:
         exercise = normalize_exercise(m.group("exercise"), text)
+        variations = detect_variations(exercise, text)
         sets = m.group("sets")
         reps = m.group("reps")
         weight = m.group("weight")
@@ -53,7 +74,7 @@ def classify_line(line: str) -> WorkoutRecord:
         details = f"{sets}x{reps}"
         if weight:
             details += f" @ {weight}{unit}"
-        return WorkoutRecord("strength", exercise, details, line)
+        return [WorkoutRecord("strength", exercise, variation, details, line) for variation in variations]
 
     m = CARDIO_RE.search(text)
     if m:
@@ -68,10 +89,10 @@ def classify_line(line: str) -> WorkoutRecord:
         time = m.group("time")
         if time:
             details += f", in {time}"
-        return WorkoutRecord("cardio", activity.title(), details, line)
+        return [WorkoutRecord("cardio", activity.title(), "flat", details, line)]
 
     # fallback: keep raw line, mark as note
-    return WorkoutRecord("note", text[:80], "", line)
+    return [WorkoutRecord("note", text[:80], "flat", "", line)]
 
 
 def main() -> int:
@@ -80,7 +101,11 @@ def main() -> int:
     else:
         text = sys.stdin.read()
 
-    records = [asdict(classify_line(line)) for line in text.splitlines() if line.strip()]
+    records = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        records.extend(asdict(record) for record in classify_line(line))
     print(json.dumps(records, indent=2, ensure_ascii=False))
     return 0
 
