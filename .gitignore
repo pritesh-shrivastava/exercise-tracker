@@ -1,7 +1,11 @@
 data/
 __pycache__/
 *.pyc
+.env
+.env.*
 .venv/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.context/
+.gstack/
