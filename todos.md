@@ -4,14 +4,14 @@
 
 - [ ] Add weekly backup job to dump the raw SQLite database (`data/workouts.sqlite`) and upload it to Azure Blob Storage.
 - [ ] Keep only the last 3 backup copies in Azure Blob Storage.
-- [ ] Add a restore note/script for recovering the DB from Azure Blob if the VPS dies.
+- [x] Add a restore note/script for recovering the DB from Azure Blob if the VPS dies. (`restore_db.sh`)
 - [ ] Check Garmin Connect data export for old strength training history and recover/import anything useful.
 
 ## Hermes Skills
 
-- [ ] Create `skills/log-workout/SKILL.md` — teach Hermes how to log workout lines, including incline/decline bench split behavior and IST timezone assumption.
-- [ ] Create `skills/workout-summary/SKILL.md` — tiered summary responses: short (last 5), weekly volume by muscle group, full PRs and trends.
-- [ ] Create `skills/backup-db/SKILL.md` — replace the raw cron backup with a skill so Hermes can trigger it on schedule or on demand.
+- [x] Create `skills/log-workout/SKILL.md` — teach Hermes how to log workout lines, including incline/decline bench split behavior and IST timezone assumption.
+- [x] Create `skills/workout-summary/SKILL.md` — tiered summary responses: short (last 5), weekly volume by muscle group, full PRs and trends.
+- [x] Create `skills/backup-db/SKILL.md` — replace the raw cron backup with a skill so Hermes can trigger it on schedule or on demand.
 - [ ] Schedule the backup-db skill weekly via Hermes cron instead of a standalone cron job.
 
 ## Hermes Memory
