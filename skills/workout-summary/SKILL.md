@@ -24,7 +24,6 @@ python summary.py --prs
 ```
 Returns: best set per exercise + variation, grouped by body part (Chest, Back, Shoulders, Arms, Legs, Core, Other).
 
-Use `--db <path>` if `WORKOUT_DB_PATH` points to a non-default location.
 
 ## Pitfalls
 

@@ -2,9 +2,8 @@
 """Workout summary and PR report.
 
 Usage:
-  python summary.py           # recent activity (last 5 entries)
-  python summary.py --prs     # personal records by body part
-  python summary.py --db PATH # use a custom database path
+  python summary.py       # recent activity (last 5 entries)
+  python summary.py --prs # personal records by body part
 """
 
 from __future__ import annotations
@@ -158,10 +157,9 @@ def print_prs(db_path: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Workout summary and PR report")
     parser.add_argument("--prs", action="store_true", help="Show personal records by body part")
-    parser.add_argument("--db", default=str(DEFAULT_DB), help="Path to workouts.sqlite")
     args = parser.parse_args()
 
-    db_path = Path(args.db)
+    db_path = DEFAULT_DB
 
     if args.prs:
         if not db_path.exists():
