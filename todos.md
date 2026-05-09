@@ -6,6 +6,7 @@
 - [ ] Keep only the last 3 backup copies in Azure Blob Storage.
 - [x] Add a restore note/script for recovering the DB from Azure Blob if the VPS dies. (`restore_db.sh`)
 - [ ] Check Garmin Connect data export for old strength training history and recover/import anything useful.
+<<<<<<< HEAD
 
 ## Hermes Skills
 
@@ -26,3 +27,6 @@
   - **Option A (recommended)**: Route Telegram through Hermes's gateway instead of the standalone `telegram_bot.py`. Voice transcription (Whisper) is built-in; set `GROQ_API_KEY` for fast free-tier cloud transcription via Groq.
   - **Option B**: Keep `telegram_bot.py` standalone — download the OGG voice file from Telegram, send to Groq/Whisper API, get transcript, pass through existing `insert_lines()` pipeline. More code, but keeps the bot independent of Hermes.
 - [ ] Note: GPT-5.4 mini does not support audio input natively — transcription must happen before the model sees the message (Hermes or Groq/Whisper handle this, not the model).
+=======
+- [ ] Generate a weekly PR report with current best set for each exercise and send it to Telegram.
+>>>>>>> acbfb66 (VPS update to todos)
