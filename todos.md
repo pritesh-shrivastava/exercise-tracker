@@ -16,8 +16,8 @@
 
 ## Hermes Memory
 
-- [ ] PR memory update is automated — weekly cron runs `pr_summary.py`, Hermes parses the output and overwrites the `## Personal Records` section in memory. No manual step needed.
-- [ ] Write training preferences (Pull→Push→Legs rotation, kg not lbs, IST timezone) into Hermes memory.
+- [x] PR memory update is automated — weekly cron runs `pr_summary.py`, Hermes parses the output and overwrites the `## Personal Records` section in memory. No manual step needed.
+- [x] Write training preferences (Pull→Push→Legs rotation, kg not lbs, IST timezone) into Hermes memory. (`memory_template.md` — copy to `~/.hermes/memories/MEMORY.md` on setup/migration)
 
 ## Telegram
 

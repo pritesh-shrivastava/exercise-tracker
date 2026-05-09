@@ -44,3 +44,7 @@ az storage blob download \
 
 echo "Restored. Verifying..."
 python summary.py
+
+echo ""
+echo "If this is a fresh Hermes install, seed memory with:"
+echo "  cp memory_template.md ~/.hermes/memories/MEMORY.md"
