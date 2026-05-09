@@ -19,6 +19,7 @@ import urllib.request
 from pathlib import Path
 
 from tracker.core import fetch_summary, format_summary, insert_lines
+from tracker.reports import format_prs
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"
@@ -69,8 +70,12 @@ def handle_message(token: str, db_path: Path, message: dict) -> None:
         send_message(
             token,
             chat_id,
-            "Send workout lines like:\n- squats 3x5 @ 100kg\n- 20 min zone 2 cardio\n- 5 km run in 28:30\n\nCommands:\n/summary - show stats\n/help - show this help",
+            "Send workout lines like:\n- squats 3x5 @ 100kg\n- 20 min zone 2 cardio\n- 5 km run in 28:30\n\nCommands:\n/summary - recent activity\n/prs - personal records by body part\n/help - show this help",
         )
+        return
+
+    if text.startswith("/prs"):
+        send_message(token, chat_id, format_prs(db_path))
         return
 
     if text.startswith("/summary"):
