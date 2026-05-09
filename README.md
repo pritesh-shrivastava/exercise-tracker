@@ -5,14 +5,14 @@ A small, portable workout tracker that you can move to another VPS later.
 ## Goal
 
 Paste what you did in natural language, and the tracker stores it in a local SQLite database.
-Hermes can be the interface, but the data stays separate and portable.
+Hermes Agent is the interface — chat with it on Telegram to log and query. The data stays separate and portable.
 
 ## Why this structure
 
 - **Portable**: data lives in `data/workouts.sqlite`
 - **Simple**: one script can log workouts from pasted text
 - **Moveable**: copy the folder to another VPS and keep going
-- **Future-proof**: easy to add Telegram, Notion, CSV export, or dashboards later
+- **Future-proof**: easy to add Notion, CSV export, or dashboards later
 
 ## Folder layout
 
@@ -20,10 +20,11 @@ Hermes can be the interface, but the data stays separate and portable.
 - `log_workout.py` — add workouts to the database
 - `summary.py` — show quick stats; `--prs` flag for personal records by body part
 - `tracker/` — core library (parser, normalizer, DB helpers, PR report)
+- `tests/` — pytest suite (test_parser.py, test_reports.py)
 - `scripts/normalize_existing.py` — one-off cleanup for old rows
 - `scripts/restore_db.sh` — restore database from Azure Blob backup
 - `skills/` — Hermes agent skill definitions
-- `config.example.yaml` — sample settings
+- `pyproject.toml` — uv project config with ruff, mypy, pytest
 - `design.md` — the current data and variation rules
 - `memory_template.md` — seed file for Hermes memory on setup/migration
 
@@ -31,9 +32,10 @@ Hermes can be the interface, but the data stays separate and portable.
 
 ```bash
 cd /home/azureuser/exercise-tracker
-python log_workout.py "squats 3x5 @ 100kg"
-python log_workout.py "20 min zone 2 cardio"
-python summary.py
+uv run python log_workout.py "squats 3x5 @ 100kg"
+uv run python log_workout.py "20 min zone 2 cardio"
+uv run python summary.py
+uv run python summary.py --prs   # personal records
 ```
 
 ## Weekly training template
@@ -164,49 +166,35 @@ If you only have a backup file, restore that instead.
 3. **Set up Python**
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+pip install uv   # or: brew install uv
+uv sync
 ```
 
-This project uses only the standard library, so there are no extra packages to install.
-
-4. **Set the environment variables**
+4. **Set the environment variable**
 
 ```bash
-export TELEGRAM_BOT_TOKEN="your-bot-token"
-export TELEGRAM_ALLOWED_CHAT_ID="optional-chat-id"
 export WORKOUT_DB_PATH="data/workouts.sqlite"
 ```
+
+Hermes Agent handles Telegram — point it at this repo and set your `TELEGRAM_BOT_TOKEN` in Hermes config, not here.
 
 5. **Verify the data**
 
 ```bash
-python summary.py
+uv run python summary.py
 ```
 
-6. **Start the Telegram bot**
+6. **Seed Hermes memory**
 
 ```bash
-python telegram_bot.py
+cp memory_template.md ~/.hermes/memories/MEMORY.md
 ```
-
-### If you want it to run as a service
-
-On the new VPS, you can run it with `systemd`, `supervisord`, or a simple `tmux` session.
-A minimal `systemd` service would just need:
-
-- the repo path
-- the venv path
-- `TELEGRAM_BOT_TOKEN`
-- `WORKOUT_DB_PATH`
 
 ### Migration checklist
 
-- [ ] repo copied or cloned
+- [ ] repo cloned
 - [ ] database copied
-- [ ] Telegram bot token set
-- [ ] summary works
-- [ ] bot starts and receives messages
-
-If you later connect a different Hermes Agent, it only needs the path to this folder and the env vars above.
+- [ ] `uv sync` runs clean
+- [ ] `uv run python summary.py` shows data
+- [ ] Hermes pointed at the repo folder
+- [ ] `memory_template.md` copied to `~/.hermes/memories/MEMORY.md`

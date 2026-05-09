@@ -51,7 +51,7 @@ Summary responses are tiered — Hermes picks the right one based on natural lan
 
 Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
 
-Three planned skills:
+Three skills, all created in `skills/`:
 - `log-workout` — parse and insert lines, handle incline/decline split, confirm count
 - `workout-summary` — pick the right summary tier and format for Telegram
 - `backup-db` — dump SQLite, upload to Azure Blob, prune to last 3 copies

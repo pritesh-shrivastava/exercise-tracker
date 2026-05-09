@@ -13,6 +13,6 @@
 
 ## Telegram
 
-- [ ] Run `/sethome` in the Telegram chat so Hermes can send proactive messages (weekly summaries, cron outputs).
+- [x] Run `/sethome` in the Telegram chat so Hermes can send proactive messages (weekly summaries, cron outputs).
 - [ ] Enable voice memo logging — Hermes is already the Telegram gateway; just set `GROQ_API_KEY` on the VPS for fast free-tier Whisper transcription via Groq.
 - [ ] Generate a weekly PR report with current best set for each exercise and send it to Telegram.
