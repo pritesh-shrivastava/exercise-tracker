@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Parse pasted workout text into a simple structured record.
 
 This is intentionally lightweight so it stays portable across VPS moves.
@@ -11,7 +10,7 @@ import re
 import sys
 from dataclasses import dataclass, asdict
 
-from exercise_normalizer import normalize_exercise
+from tracker.normalizer import normalize_exercise
 
 
 STRENGTH_RE = re.compile(

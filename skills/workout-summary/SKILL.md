@@ -20,11 +20,11 @@ Returns: total entries, date range, breakdown by type, last 5 entries.
 
 ### PR summary (full)
 ```
-python pr_summary.py
+python summary.py --prs
 ```
 Returns: best set per exercise + variation, grouped by body part (Chest, Back, Shoulders, Arms, Legs, Core, Other).
 
-Use `--db <path>` on either script if `WORKOUT_DB_PATH` points to a non-default location.
+Use `--db <path>` if `WORKOUT_DB_PATH` points to a non-default location.
 
 ## Pitfalls
 
@@ -34,7 +34,7 @@ Use `--db <path>` on either script if `WORKOUT_DB_PATH` points to a non-default 
 
 ## After the weekly PR summary
 
-After running `pr_summary.py`, update Hermes memory with the latest PRs so they're available as fast-access context in future sessions without querying the DB:
+After running `python summary.py --prs`, update Hermes memory with the latest PRs so they're available as fast-access context in future sessions without querying the DB:
 
 1. Parse the PR output — best set per exercise + variation.
 2. Write the results into memory under a `## Personal Records` section, replacing any previous entries.

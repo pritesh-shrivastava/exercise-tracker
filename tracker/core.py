@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from parse_workout import classify_line
+from tracker.parser import classify_line
 
 IST = ZoneInfo("Asia/Kolkata")
 

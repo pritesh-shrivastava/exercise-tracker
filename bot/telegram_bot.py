@@ -18,9 +18,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from tracker_core import fetch_summary, format_summary, insert_lines
+from tracker.core import fetch_summary, format_summary, insert_lines
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"
 API_BASE = "https://api.telegram.org/bot{token}/{method}"
 

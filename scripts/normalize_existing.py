@@ -6,10 +6,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from exercise_normalizer import normalize_exercise
+from tracker.normalizer import normalize_exercise
 
 
-DB = Path(__file__).resolve().parent / "data" / "workouts.sqlite"
+DB = Path(__file__).resolve().parent.parent / "data" / "workouts.sqlite"
 
 
 def main() -> int:

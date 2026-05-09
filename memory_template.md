@@ -27,7 +27,7 @@ If only 3 days in a week: Pull, Push, Legs. Add Shoulders on day 4, Functional o
 
 - Database: `data/workouts.sqlite` in the exercise-tracker repo
 - Log with: `python log_workout.py "<text>"`
-- Summary: `python summary.py` (recent) or `python pr_summary.py` (PRs by body part)
+- Summary: `python summary.py` (recent) or `python summary.py --prs` (PRs by body part)
 - Bench press variations are tracked separately: flat, incline, decline
 
 ## Personal Records

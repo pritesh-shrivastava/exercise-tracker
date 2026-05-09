@@ -27,7 +27,7 @@ When the user sends:
 
 2. Confirm the count returned: "Logged N workout line(s)."
 
-3. If this looks like the last session of the week, offer to run `python summary.py` or `python pr_summary.py`.
+3. If this looks like the last session of the week, offer to run `python summary.py` (recent) or `python summary.py --prs` (personal records).
 
 ## Pitfalls
 

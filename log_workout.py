@@ -8,7 +8,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from tracker_core import insert_lines
+from tracker.core import insert_lines
 
 
 BASE_DIR = Path(__file__).resolve().parent

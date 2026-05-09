@@ -62,4 +62,4 @@ az storage blob list \
   --output table
 ```
 Should show 1–3 blobs named `workouts-YYYYMMDD.sqlite`.
-To restore, run `bash restore_db.sh` from the repo root.
+To restore, run `bash scripts/restore_db.sh` from the repo root.

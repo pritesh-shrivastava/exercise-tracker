@@ -21,15 +21,15 @@ Hermes can be the interface, but the data stays separate and portable.
 - `exports/` — CSV / JSON exports
 - `logs/` — app logs
 - `log_workout.py` — add workouts to the database
-- `summary.py` — show quick stats
-- `parse_workout.py` — turn pasted text into structured fields
-- `exercise_normalizer.py` — canonical exercise names and aliases
-- `normalize_existing.py` — one-off cleanup for old rows
-- `telegram_bot.py` — listen to Telegram and log messages automatically
-- `tracker_core.py` — shared DB/stats helpers
+- `summary.py` — show quick stats; `--prs` flag for personal records by body part
+- `tracker/` — core library (parser, normalizer, DB helpers)
+- `bot/telegram_bot.py` — listen to Telegram and log messages automatically
+- `scripts/normalize_existing.py` — one-off cleanup for old rows
+- `scripts/restore_db.sh` — restore database from Azure Blob backup
+- `skills/` — Hermes agent skill definitions
 - `config.example.yaml` — sample settings
 - `design.md` — the current data and variation rules
-- `pr_summary.py` — workout PR summary for Telegram
+- `memory_template.md` — seed file for Hermes memory on setup/migration
 
 ## Quick start
 
@@ -90,7 +90,7 @@ If you want the tracker to log workouts directly from Telegram:
 4. Run:
 
 ```bash
-python telegram_bot.py
+python bot/telegram_bot.py
 ```
 
 Then send workout messages like:
