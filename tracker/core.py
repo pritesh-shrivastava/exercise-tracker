@@ -56,7 +56,7 @@ def insert_lines(db_path: Path, text: str, source: str = "manual") -> int:
         if not isinstance(recs, list):
             recs = [recs]
         for rec in recs:
-            rows.append((now, workout_date, rec.workout_type, rec.exercise, rec.variation, rec.details, rec.raw_text, source))
+            rows.append((now, workout_date, rec.workout_type, rec.exercise, rec.variation, rec.details, rec.raw_text, source))  # noqa: E501
 
     if not rows:
         return 0
@@ -107,7 +107,12 @@ def format_summary(summary: dict) -> str:
     if summary.get("empty"):
         return "No workouts logged yet."
 
-    lines = ["Workout summary", f"- Total entries: {summary['total_entries']}", f"- Date range: {summary['date_min']} to {summary['date_max']}", "- By type:"]
+    lines = [
+        "Workout summary",
+        f"- Total entries: {summary['total_entries']}",
+        f"- Date range: {summary['date_min']} to {summary['date_max']}",
+        "- By type:",
+    ]
     for key, value in summary["type_counts"].items():
         lines.append(f"  - {key}: {value}")
 

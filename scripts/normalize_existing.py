@@ -8,7 +8,6 @@ from pathlib import Path
 
 from tracker.normalizer import normalize_exercise
 
-
 DB = Path(__file__).resolve().parent.parent / "data" / "workouts.sqlite"
 
 
@@ -24,7 +23,10 @@ def main() -> int:
             conn.execute("ALTER TABLE workouts ADD COLUMN variation TEXT NOT NULL DEFAULT 'default'")
             conn.execute("UPDATE workouts SET variation = 'default' WHERE variation IS NULL OR variation = ''")
 
-        rows = conn.execute("SELECT id, exercise, variation, raw_text, logged_at, workout_date, workout_type, details, source FROM workouts ORDER BY id").fetchall()
+        rows = conn.execute(
+            "SELECT id, exercise, variation, raw_text, logged_at, workout_date, workout_type, details, source"
+            " FROM workouts ORDER BY id"
+        ).fetchall()
         updates = []
         inserts = []
         deletes = []
@@ -53,7 +55,10 @@ def main() -> int:
             if len(target_variations) > 1:
                 deletes.append(row["id"])
                 for variation in target_variations:
-                    inserts.append((row["logged_at"], row["workout_date"], row["workout_type"], normalized, variation, row["details"], row["raw_text"], row["source"]))
+                    inserts.append((
+                        row["logged_at"], row["workout_date"], row["workout_type"],
+                        normalized, variation, row["details"], row["raw_text"], row["source"],
+                    ))
                 continue
 
             variation = target_variations[0]
@@ -61,7 +66,10 @@ def main() -> int:
                 updates.append((normalized, variation, row["id"], row["exercise"], row["variation"]))
 
         for normalized, variation, row_id, old_exercise, old_variation in updates:
-            conn.execute("UPDATE workouts SET exercise = ?, variation = ? WHERE id = ?", (normalized, variation, row_id))
+            conn.execute(
+                "UPDATE workouts SET exercise = ?, variation = ? WHERE id = ?",
+                (normalized, variation, row_id),
+            )
             print(f"{row_id}: {old_exercise} [{old_variation}] -> {normalized} [{variation}]")
 
         for row_id in deletes:
@@ -70,7 +78,9 @@ def main() -> int:
 
         if inserts:
             conn.executemany(
-                "INSERT INTO workouts (logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO workouts"
+                " (logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 inserts,
             )
             for idx, row in enumerate(inserts, start=1):

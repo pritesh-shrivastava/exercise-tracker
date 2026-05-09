@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import sqlite3
 import sys
 from pathlib import Path
 
 from tracker.core import insert_lines
-
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"

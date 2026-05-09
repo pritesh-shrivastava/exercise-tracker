@@ -8,10 +8,9 @@ from __future__ import annotations
 import json
 import re
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 from tracker.normalizer import normalize_exercise
-
 
 STRENGTH_RE = re.compile(
     r"(?P<exercise>.+?)\s+"
@@ -100,7 +99,7 @@ def main() -> int:
     else:
         text = sys.stdin.read()
 
-    records = []
+    records: list[dict] = []
     for line in text.splitlines():
         if not line.strip():
             continue

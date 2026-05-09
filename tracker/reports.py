@@ -6,6 +6,7 @@ import re
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -52,15 +53,22 @@ def _parse_reps_sets(details: str) -> tuple[int, int]:
 
 def _body_part(exercise: str) -> str:
     name = exercise.lower()
-    if any(t in name for t in ["bench press", "pec fly", "chest press", "chest fly", "push up", "pushup"]):
+    chest = ["bench press", "pec fly", "chest press", "chest fly", "push up", "pushup"]
+    back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up"]
+    shoulders = ["shoulder press", "arnold press", "lateral raise", "front raise", "rear delt"]
+    legs = ["leg press", "leg extension", "leg ext", "leg curl", "hamstring curl",
+            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise"]
+    arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl"]
+    arms_exclude = ["leg curl", "hamstring curl", "calf curl"]
+    if any(t in name for t in chest):
         return "Chest"
-    if any(t in name for t in ["lat pull down", "lat pulldown", "row", "pullup", "pull up"]) and "rear delt" not in name:
+    if any(t in name for t in back) and "rear delt" not in name:
         return "Back"
-    if any(t in name for t in ["shoulder press", "arnold press", "lateral raise", "front raise", "rear delt"]):
+    if any(t in name for t in shoulders):
         return "Shoulders"
-    if any(t in name for t in ["leg press", "leg extension", "leg ext", "leg curl", "hamstring curl", "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise"]):
+    if any(t in name for t in legs):
         return "Legs"
-    if any(t in name for t in ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl"]) and not any(t in name for t in ["leg curl", "hamstring curl", "calf curl"]):
+    if any(t in name for t in arms) and not any(t in name for t in arms_exclude):
         return "Arms"
     if any(t in name for t in ["crunch", "abs", "plank", "core"]):
         return "Core"
@@ -91,7 +99,6 @@ def _best_sets(rows: Iterable[PRRow]) -> dict[tuple[str, str], PRRow]:
 
 
 def _fmt_date(d: str) -> str:
-    from datetime import date, datetime
     try:
         pr_date = datetime.strptime(d, "%Y-%m-%d").date()
         age = (date.today() - pr_date).days
@@ -108,12 +115,14 @@ def format_prs(db_path: Path) -> str:
         return "No strength workouts logged yet."
 
     prs = _best_sets(rows)
-    grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))
+    grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))  # noqa: E501
     for (exercise, variation), row in prs.items():
         grouped[_body_part(exercise)][exercise].append((variation, row))
 
     seen = list(grouped.keys())
-    order = [p for p in BODY_PART_ORDER if p in seen] + sorted(p for p in seen if p not in BODY_PART_ORDER)
+    order = [p for p in BODY_PART_ORDER if p in seen] + sorted(
+        p for p in seen if p not in BODY_PART_ORDER
+    )
 
     lines = [
         "🏋️ Workout PR Summary",
@@ -127,7 +136,11 @@ def format_prs(db_path: Path) -> str:
         for exercise in sorted(grouped[body_part]):
             variations = sorted(
                 grouped[body_part][exercise],
-                key=lambda item: (item[0] not in {"default", "flat"}, 0 if item[0] == "default" else 1 if item[0] == "flat" else 2, item[0]),
+                key=lambda item: (
+                    item[0] not in {"default", "flat"},
+                    0 if item[0] == "default" else 1 if item[0] == "flat" else 2,
+                    item[0],
+                ),
             )
             lines.append(f"- {exercise}")
             for variation, row in variations:
