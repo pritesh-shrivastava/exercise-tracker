@@ -91,9 +91,12 @@ def _best_sets(rows: Iterable[PRRow]) -> dict[tuple[str, str], PRRow]:
 
 
 def _fmt_date(d: str) -> str:
+    from datetime import date, datetime
     try:
-        from datetime import datetime
-        return datetime.strptime(d, "%Y-%m-%d").strftime("%d %b %Y")
+        pr_date = datetime.strptime(d, "%Y-%m-%d").date()
+        age = (date.today() - pr_date).days
+        dot = "🟢" if age <= 14 else "🔴"
+        return f"{dot} {pr_date.strftime('%d %b %Y')}"
     except ValueError:
         return d
 
