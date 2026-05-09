@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -46,8 +45,9 @@ def ensure_db(db_path: Path) -> None:
 
 def insert_lines(db_path: Path, text: str, source: str = "manual") -> int:
     ensure_db(db_path)
-    now = now_ist().isoformat()
-    workout_date = now_ist().date().isoformat()
+    ts = now_ist()
+    now = ts.isoformat()
+    workout_date = ts.date().isoformat()
     rows = []
     for line in text.splitlines():
         if not line.strip():
@@ -80,23 +80,29 @@ def fetch_summary(db_path: Path, recent_limit: int = 5) -> dict:
 
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT workout_date, workout_type, exercise, variation, details, raw_text FROM workouts ORDER BY id DESC"
+
+        agg = conn.execute(
+            "SELECT COUNT(*) AS total, MIN(workout_date) AS date_min, MAX(workout_date) AS date_max FROM workouts"
+        ).fetchone()
+        if not agg or agg["total"] == 0:
+            return {"exists": True, "empty": True}
+
+        type_rows = conn.execute(
+            "SELECT workout_type, COUNT(*) AS cnt FROM workouts GROUP BY workout_type ORDER BY workout_type"
+        ).fetchall()
+        recent = conn.execute(
+            "SELECT workout_date, workout_type, exercise, variation, details, raw_text"
+            " FROM workouts ORDER BY id DESC LIMIT ?",
+            (recent_limit,),
         ).fetchall()
 
-    if not rows:
-        return {"exists": True, "empty": True}
-
-    type_counts = Counter(r["workout_type"] for r in rows)
-    dates = [r["workout_date"] for r in rows]
-    recent = rows[:recent_limit]
     return {
         "exists": True,
         "empty": False,
-        "total_entries": len(rows),
-        "date_min": min(dates),
-        "date_max": max(dates),
-        "type_counts": dict(sorted(type_counts.items())),
+        "total_entries": agg["total"],
+        "date_min": agg["date_min"],
+        "date_max": agg["date_max"],
+        "type_counts": {r["workout_type"]: r["cnt"] for r in type_rows},
         "recent": [dict(r) for r in recent],
     }
 

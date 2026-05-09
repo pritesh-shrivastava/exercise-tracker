@@ -1,6 +1,5 @@
 """Tests for tracker.parser.classify_line."""
 
-import pytest
 from tracker.parser import classify_line
 
 

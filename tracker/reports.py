@@ -134,13 +134,10 @@ def format_prs(db_path: Path) -> str:
         emoji = BODY_PART_EMOJI.get(body_part, "•")
         lines.append(f"{emoji} {body_part}")
         for exercise in sorted(grouped[body_part]):
+            _VAR_ORDER = {"default": 0, "flat": 1}
             variations = sorted(
                 grouped[body_part][exercise],
-                key=lambda item: (
-                    item[0] not in {"default", "flat"},
-                    0 if item[0] == "default" else 1 if item[0] == "flat" else 2,
-                    item[0],
-                ),
+                key=lambda item: (_VAR_ORDER.get(item[0], 2), item[0]),
             )
             lines.append(f"- {exercise}")
             for variation, row in variations:

@@ -7,9 +7,37 @@ from __future__ import annotations
 
 import re
 
+_STRIP_RE = re.compile(r"[^a-z0-9+\s]")
+_SPACE_RE = re.compile(r"\s+")
+_WIDE_RE = re.compile(r"\bwide\b")
+
+_CANONICAL: dict[str, str] = {
+    "shoulder press": "Shoulder Press",
+    "should press": "Shoulder Press",
+    "bicep curl": "Bicep Curl",
+    "bicep curl on cable": "Bicep Curl on Cable",
+    "bicep preacher curl": "Bicep Preacher Curl",
+    "reverse curl on cable": "Reverse Curl on Cable",
+    "seated row": "Seated Row",
+    "horizontal rows": "Horizontal Row",
+    "horizontal leg press": "Horizontal Leg Press",
+    "chest press vertical": "Chest Press Vertical",
+    "assisted pullup": "Assisted Pullup",
+    "pec fly": "Pec Fly",
+    "arnold press": "Arnold Press",
+    "lateral raise": "Lateral Raise",
+    "front raise": "Front Raise",
+    "leg extension": "Leg Extension",
+    "leg curl": "Leg Curl",
+    "leg press": "Leg Press",
+    "sumo squat": "Sumo Squat",
+    "hamstring curl": "Hamstring Curl",
+    "abs crunch": "Abs Crunch",
+}
+
 
 def _clean(text: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+\s]", " ", text.lower())).strip()
+    return _SPACE_RE.sub(" ", _STRIP_RE.sub(" ", text.lower())).strip()
 
 
 def normalize_exercise(exercise: str, raw_text: str = "") -> str:
@@ -18,11 +46,9 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     combined = f"{ex} {raw}".strip()
 
     if "bench" in combined and ("press" in combined or "presa" in combined):
-        if "barbell" in combined:
-            return "Barbell Bench Press"
-        return "Dumbbell Bench Press"
+        return "Barbell Bench Press" if "barbell" in combined else "Dumbbell Bench Press"
 
-    # Specific typo and synonym fixes first.
+    # Typo/synonym fixes that require checking combined (exercise + raw text together)
     if "should press" in combined:
         return "Shoulder Press"
     if "tricep pulldown" in combined or "tricep pushdown" in combined:
@@ -32,59 +58,17 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     if "calf rause" in combined:
         return "Calf Raise"
 
-    # Lat pull-down variants: keep grip if present, otherwise one canonical name.
     if "lat pull down" in combined or "lat pulldown" in combined:
         if "short grip" in combined:
             return "Lat Pull Down (Short Grip)"
-        if "wide grip" in combined or re.search(r"\bwide\b", combined):
+        if "wide grip" in combined or _WIDE_RE.search(combined):
             return "Lat Pull Down (Wide Grip)"
         return "Lat Pull Down"
 
-    # Rear-delt naming: keep one canonical name across rear fly / rear delt.
     if "rear delt" in combined or "rear fly" in combined:
         return "Rear Delt Fly"
 
-    # Mild cleanup for common formatting issues.
-    if ex == "shoulder press" or ex == "should press":
-        return "Shoulder Press"
-    if ex == "bicep curl":
-        return "Bicep Curl"
-    if ex == "bicep curl on cable":
-        return "Bicep Curl on Cable"
-    if ex == "bicep preacher curl":
-        return "Bicep Preacher Curl"
-    if ex == "reverse curl on cable":
-        return "Reverse Curl on Cable"
-    if ex == "seated row":
-        return "Seated Row"
-    if ex == "horizontal rows":
-        return "Horizontal Row"
-    if ex == "horizontal leg press":
-        return "Horizontal Leg Press"
-    if ex == "chest press vertical":
-        return "Chest Press Vertical"
-    if ex == "assisted pullup":
-        return "Assisted Pullup"
-    if ex == "pec fly":
-        return "Pec Fly"
-    if ex == "arnold press":
-        return "Arnold Press"
-    if ex == "lateral raise":
-        return "Lateral Raise"
-    if ex == "front raise":
-        return "Front Raise"
-    if ex == "leg extension":
-        return "Leg Extension"
-    if ex == "leg curl":
-        return "Leg Curl"
-    if ex == "leg press":
-        return "Leg Press"
-    if ex == "sumo squat":
-        return "Sumo Squat"
-    if ex == "hamstring curl":
-        return "Hamstring Curl"
-    if ex == "abs crunch":
-        return "Abs Crunch"
+    if ex in _CANONICAL:
+        return _CANONICAL[ex]
 
-    # Default: title-case the cleaned name.
-    return re.sub(r"\s+", " ", exercise).strip().title()
+    return _SPACE_RE.sub(" ", exercise).strip().title()
