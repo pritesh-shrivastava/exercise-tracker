@@ -32,6 +32,16 @@ Use `--db <path>` on either script if `WORKOUT_DB_PATH` points to a non-default 
 - `pr_summary.py` ranks by weight first, then reps, then sets. High-rep low-weight entries may not surface as PRs even if they represent progress.
 - `default` variations are hidden in summary output; `flat`, `incline`, `decline` are shown explicitly for bench press.
 
+## After the weekly PR summary
+
+After running `pr_summary.py`, update Hermes memory with the latest PRs so they're available as fast-access context in future sessions without querying the DB:
+
+1. Parse the PR output — best set per exercise + variation.
+2. Write the results into memory under a `## Personal Records` section, replacing any previous entries.
+3. Include the date so it's clear when the snapshot was taken.
+
+This runs automatically as part of the weekly cron — no manual update needed.
+
 ## Verification
 
 Both scripts print to stdout. Output should not be empty if workouts have been logged.

@@ -16,7 +16,7 @@
 
 ## Hermes Memory
 
-- [ ] Write current PRs (e.g. bench 1RM, squat, deadlift) into Hermes memory so the agent can reference them without querying the DB each time.
+- [ ] PR memory update is automated — weekly cron runs `pr_summary.py`, Hermes parses the output and overwrites the `## Personal Records` section in memory. No manual step needed.
 - [ ] Write training preferences (Pull→Push→Legs rotation, kg not lbs, IST timezone) into Hermes memory.
 
 ## Telegram
