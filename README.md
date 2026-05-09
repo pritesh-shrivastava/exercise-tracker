@@ -102,6 +102,10 @@ It also supports:
 - `/summary`
 - `/help`
 
+**Setup tip**: Run `/sethome` in your Telegram chat after connecting Hermes so cron job outputs and scheduled summaries are delivered there automatically.
+
+**Planned**: Voice memo support — speak your workout log on the go and it will be auto-transcribed and logged.
+
 ## Paste format examples
 
 Strength:
@@ -123,6 +127,23 @@ Mixed log:
 - `squats 3x5 @ 100kg`
 - `bench 5x5 @ 70kg`
 - `20 min incline walk`
+
+## Hermes Agent skills
+
+The `skills/` folder teaches Hermes the procedures for this tracker. Each skill is a folder containing a `SKILL.md`:
+
+```
+skills/
+  log-workout/      — how to log workout lines from natural language
+  workout-summary/  — tiered summary: recent entries, weekly volume, PRs
+  backup-db/        — dump SQLite to Azure Blob and prune old copies
+```
+
+Skills are auto-discovered by Hermes on startup. The agent picks the right skill based on what you ask, then runs the procedure in `SKILL.md`. You can also trigger any skill manually.
+
+Hermes memory stores facts that persist across sessions:
+- Your current PRs (bench, squat, deadlift)
+- Training preferences (Pull→Push→Legs rotation, kg, IST timezone)
 
 ## Migration to another VPS
 
