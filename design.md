@@ -3,7 +3,7 @@
 ## Purpose
 
 This tracker keeps workout logs portable and easy to move between VPS instances.
-The database is the source of truth; the Telegram bot and summary scripts are just interfaces.
+The database is the source of truth. Hermes Agent is the sole interface — via Telegram for logging and queries, and via cron for scheduled reports. The Python scripts are tools that Hermes calls; they are not run directly by the user.
 
 ## Data model
 
@@ -40,13 +40,12 @@ When a pasted line contains both incline and decline bench wording:
 - `flat`, `incline`, and `decline` are shown for bench press
 - the summary is grouped by body part first, then exercise
 
-Summary responses are tiered:
+Summary responses are tiered — Hermes picks the right one based on natural language:
 
-| Level | Trigger | Content |
+| Level | Example trigger | Script |
 |---|---|---|
-| Short | default `/summary` | last 5 entries |
-| Weekly | "this week" or "weekly" | volume by muscle group for the current week |
-| Full | "full summary" or "PRs" | all-time PRs, trends, date range |
+| Short | "show recent workouts" | `python summary.py` |
+| Full PRs | "show my PRs", "best lifts" | `python summary.py --prs` |
 
 ## Hermes skills architecture
 
@@ -57,15 +56,15 @@ Three planned skills:
 - `workout-summary` — pick the right summary tier and format for Telegram
 - `backup-db` — dump SQLite, upload to Azure Blob, prune to last 3 copies
 
-The data layer (`tracker_core.py`, `parse_workout.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
+The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
 
 ## Hermes memory
 
 Hermes memory stores facts that persist across sessions but are not derivable from the database:
 
-- Current PRs (bench, squat, deadlift) — updated manually when a new PR is hit
+- Current PRs — overwritten automatically after each weekly `python summary.py --prs` run
 - Training preferences: Pull→Push→Legs priority rotation, kg not lbs, IST timezone
-- Voice memo transcription is on by default when Telegram integration is active
+- Voice memos sent via Telegram are auto-transcribed by Hermes before being logged
 
 ## Maintenance notes
 

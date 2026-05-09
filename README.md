@@ -22,8 +22,7 @@ Hermes can be the interface, but the data stays separate and portable.
 - `logs/` — app logs
 - `log_workout.py` — add workouts to the database
 - `summary.py` — show quick stats; `--prs` flag for personal records by body part
-- `tracker/` — core library (parser, normalizer, DB helpers)
-- `bot/telegram_bot.py` — listen to Telegram and log messages automatically
+- `tracker/` — core library (parser, normalizer, DB helpers, PR report)
 - `scripts/normalize_existing.py` — one-off cleanup for old rows
 - `scripts/restore_db.sh` — restore database from Azure Blob backup
 - `skills/` — Hermes agent skill definitions
@@ -80,31 +79,17 @@ Follow the next available slot instead of forcing a rigid calendar:
 
 - Swimming / badminton / walk
 
-## Telegram logging
+## Telegram interface
 
-If you want the tracker to log workouts directly from Telegram:
+Hermes Agent is the Telegram interface. There is no separate bot to run — just chat with Hermes directly:
 
-1. Create a bot with BotFather
-2. Set `TELEGRAM_BOT_TOKEN`
-3. Optional: set `TELEGRAM_ALLOWED_CHAT_ID` to restrict it to your chat
-4. Run:
+- "squats 3x5 @ 100kg" → logged
+- "20 min zone 2 cardio" → logged
+- "show my PRs" → runs `python summary.py --prs`, sends results back
+- "show recent workouts" → runs `python summary.py`
+- Voice memos → auto-transcribed by Hermes, then logged
 
-```bash
-python bot/telegram_bot.py
-```
-
-Then send workout messages like:
-- `squats 3x5 @ 100kg`
-- `20 min zone 2 cardio`
-- `5 km run in 28:30`
-
-It also supports:
-- `/summary`
-- `/help`
-
-**Setup tip**: Run `/sethome` in your Telegram chat after connecting Hermes so cron job outputs and scheduled summaries are delivered there automatically.
-
-**Planned**: Voice memo support — speak your workout log on the go and it will be auto-transcribed and logged.
+Run `/sethome` once in your Telegram chat so Hermes knows where to deliver scheduled outputs like the weekly PR report.
 
 ## Paste format examples
 
