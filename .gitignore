@@ -1,5 +1,6 @@
+data/
+exports/
+imports/
+logs/
 __pycache__/
 *.pyc
-*.sqlite
-*.sqlite.bak
-.env
