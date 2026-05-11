@@ -91,14 +91,14 @@ def test_body_part_leg_curl_not_arms():
 
 # --- Date formatting ---
 
-def test_fmt_date_recent_is_green():
+def test_fmt_date_recent_is_new():
     from datetime import date
     today = date.today().strftime("%Y-%m-%d")
-    assert "🟢" in _fmt_date(today)
+    assert "+" in _fmt_date(today)
 
 
-def test_fmt_date_old_is_red():
-    assert "🔴" in _fmt_date("2020-01-01")
+def test_fmt_date_old_is_minus():
+    assert "-" in _fmt_date("2020-01-01")
 
 
 # --- Integration: format_prs ---
