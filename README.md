@@ -6,9 +6,8 @@ Paste what you did in natural language, and the tracker stores it in a local SQL
 
 ## Why this structure
 
-- **Portable**: data lives in `data/workouts.sqlite`
+- **Portable**: data lives in `data/workouts.sqlite` — copy the folder to another VPS and keep going
 - **Simple**: one script can log workouts from pasted text
-- **Portable**: copy the folder to another VPS and keep going
 - **Future-proof**: easy to add Notion, CSV export, or dashboards later
 
 ## Folder layout
@@ -35,6 +34,7 @@ skills/                      — Hermes agent skill definitions (loaded on deman
   log-workout/SKILL.md
   workout-summary/SKILL.md
   backup-db/SKILL.md
+  query-db/SKILL.md
 pyproject.toml               — uv project config with ruff, mypy, pytest
 design.md                    — data model, variation rules, logging behaviour
 memory_template.md           — seed file for Hermes memory on setup/migration
@@ -233,3 +233,7 @@ uv run mypy tracker/ summary.py log_workout.py  # type check
 ```
 
 After schema changes: `uv run python scripts/backfill_structured.py`
+
+## License
+
+MIT — see [LICENSE](LICENSE).
