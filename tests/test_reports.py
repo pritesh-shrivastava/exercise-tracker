@@ -6,8 +6,7 @@ import pytest
 
 from tracker.core import ensure_db, insert_lines
 from tracker.parser import classify_lines, infer_equipment
-from tracker.reports import _body_part, _fmt_date, format_prs
-
+from tracker.reports import _body_part, _fmt_date, format_prs_compact as format_prs
 
 # --- Parser structured output tests ---
 
@@ -131,8 +130,8 @@ def test_format_prs_groups_by_body_part(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
     insert_lines(db, "bench press 3x5 @ 80kg\nsquats 3x5 @ 100kg")
     result = format_prs(db)
-    assert "Chest" in result
-    assert "Legs" in result
+    assert "💪" in result  # Chest
+    assert "🦵" in result  # Legs
 
 
 def test_format_prs_picks_highest_weight_from_structured(tmp_path: Path):

@@ -12,7 +12,7 @@ import argparse
 from pathlib import Path
 
 from tracker.core import fetch_recent_activity, format_recent_activity
-from tracker.reports import format_prs, format_prs_compact
+from tracker.reports import format_prs_compact
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"
@@ -21,17 +21,12 @@ DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"
 def main() -> int:
     parser = argparse.ArgumentParser(description="Workout summary and PR report")
     parser.add_argument("--prs", action="store_true", help="Show personal records by body part")
-    parser.add_argument("--compact", action="store_true", help="Show PRs in compact one-line-per-exercise format")
     args = parser.parse_args()
 
-    if args.compact:
+    if args.prs:
         if not DEFAULT_DB.exists():
             raise SystemExit(f"No database found at {DEFAULT_DB}")
         print(format_prs_compact(DEFAULT_DB))
-    elif args.prs:
-        if not DEFAULT_DB.exists():
-            raise SystemExit(f"No database found at {DEFAULT_DB}")
-        print(format_prs(DEFAULT_DB))
     else:
         print(format_recent_activity(fetch_recent_activity(DEFAULT_DB)))
 
