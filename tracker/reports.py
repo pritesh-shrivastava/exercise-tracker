@@ -131,7 +131,7 @@ def format_prs(db_path: Path) -> str:
                     per_hand_kg = int(row.weight_kg / 2) if (row.weight_kg / 2) == int(row.weight_kg / 2) else row.weight_kg / 2
                     # Rebuild details with total weight if details shows per-hand
                     total_str = str(int(row.weight_kg)) if row.weight_kg == int(row.weight_kg) else str(row.weight_kg)
-                    display_details = f"{row.sets}x{row.reps} @ {total_str}"
+                    display_details = f"{row.sets}x{row.reps} @ {total_str} kg"
                     display_details = f"{display_details} ({per_hand_kg} ea.)"
                 if variation in ("default", ""):
                     lines.append(f"  • {display_details} ({date})")
