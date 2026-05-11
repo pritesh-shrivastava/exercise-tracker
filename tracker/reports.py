@@ -39,7 +39,7 @@ def _body_part(exercise: str) -> str:
     name = exercise.lower()
     chest = ["bench press", "pec fly", "chest press", "chest fly", "push up", "pushup"]
     back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up"]
-    shoulders = ["shoulder press", "arnold press", "lateral raise", "front raise", "rear delt"]
+    shoulders = ["shoulder press", "arnold press", "lateral raise", "front raise", "rear delt", "face pull", "dumbbell shrug", "dumbbell shrugs", "shrug", "shrugs"]
     legs = ["leg press", "leg extension", "leg ext", "leg curl", "hamstring curl",
             "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise"]
     arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl"]

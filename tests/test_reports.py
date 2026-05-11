@@ -75,6 +75,8 @@ def test_infer_equipment(exercise, raw, expected):
     ("Abs Crunch", "Core"),
     ("Plank", "Core"),
     ("Something Random", "Other"),
+    ("Face Pull", "Shoulders"),
+    ("Dumbbell Shrugs", "Shoulders"),
 ])
 def test_body_part_classification(exercise, expected):
     assert _body_part(exercise) == expected
