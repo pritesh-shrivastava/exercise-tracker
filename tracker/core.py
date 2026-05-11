@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from tracker.parser import WorkoutRecord, classify_lines
+from tracker.reports import _body_part
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -151,7 +152,11 @@ def format_summary(summary: dict) -> str:
         lines.append(f"  - {key}: {value}")
 
     lines.append("")
-    lines.append("Recent days:")
+    lines.append("Recent activity:")
+    # Pre-compute body-part label per date
+    date_parts: dict[str, set[str]] = {}
+    for row in summary["recent"]:
+        date_parts.setdefault(row["workout_date"], set()).add(_body_part(row["exercise"]))
     last_date = None
     for row in summary["recent"]:
         per_hand = row.get("per_hand", 0)
@@ -172,7 +177,12 @@ def format_summary(summary: dict) -> str:
 
         variation = f" [{row['variation']}]" if row.get("variation") and row["variation"] not in ("default", "") else ""
         equip = f" ({row['equipment']})" if row.get("equipment") and row["equipment"] != "other" else ""
-        date_label = f"\n{row['workout_date']}:" if row["workout_date"] != last_date else ""
+        if row["workout_date"] != last_date:
+            parts = date_parts[row["workout_date"]]
+            label = " / ".join(sorted(parts))
+            date_label = f"\n{row['workout_date']} ({label}):"
+        else:
+            date_label = ""
         lines.append(f"{date_label}    {row['exercise']}{variation}{details}{equip}")
         last_date = row["workout_date"]
     return "\n".join(lines)
