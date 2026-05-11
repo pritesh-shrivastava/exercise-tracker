@@ -12,14 +12,17 @@ _SPACE_RE = re.compile(r"\s+")
 _WIDE_RE = re.compile(r"\bwide\b")
 
 _CANONICAL: dict[str, str] = {
-    "shoulder press": "Shoulder Press",
-    "should press": "Shoulder Press",
+    "shoulder press": "Dumbbell Shoulder Press",
+    "should press": "Dumbbell Shoulder Press",
+    "dumbbell shoulder press": "Dumbbell Shoulder Press",
     "bicep curl": "Bicep Curl",
     "bicep curl on cable": "Bicep Curl on Cable",
     "bicep preacher curl": "Bicep Preacher Curl",
     "reverse curl on cable": "Reverse Curl on Cable",
-    "seated row": "Seated Row",
-    "horizontal rows": "Horizontal Row",
+    "seated row": "Seated Horizontal Row",
+    "horizontal row": "Seated Horizontal Row",
+    "horizontal rows": "Seated Horizontal Row",
+    "seated horizontal row": "Seated Horizontal Row",
     "horizontal leg press": "Horizontal Leg Press",
     "chest press vertical": "Chest Press Vertical",
     "assisted pullup": "Assisted Pullup",
@@ -28,11 +31,14 @@ _CANONICAL: dict[str, str] = {
     "lateral raise": "Lateral Raise",
     "front raise": "Front Raise",
     "leg extension": "Leg Extension",
-    "leg curl": "Leg Curl",
-    "leg press": "Leg Press",
-    "sumo squat": "Sumo Squat",
+    "leg ext": "Leg Extension",
+    "leg curl": "Hamstring Curl",
     "hamstring curl": "Hamstring Curl",
-    "abs crunch": "Abs Crunch",
+    "leg press": "45 Degree Leg Press",
+    "45 degree leg press": "45 Degree Leg Press",
+    "sumo squat": "Sumo Squat",
+    "abs crunch": "Seated Abs Crunch Machine",
+    "seated abs crunch machine": "Seated Abs Crunch Machine",
     "dumbell": "Dumbbell",
     "dumbbell shrug": "Dumbbell Shrug",
     "dumbell shrug": "Dumbbell Shrug",
@@ -65,7 +71,7 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
 
     # Typo/synonym fixes that require checking combined (exercise + raw text together)
     if "should press" in combined:
-        return "Shoulder Press"
+        return "Dumbbell Shoulder Press"
     if "tricep pulldown" in combined or "tricep pushdown" in combined:
         return "Tricep Pushdown"
     if "biceo curl" in combined:
@@ -74,10 +80,6 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
         return "Calf Raise"
 
     if "lat pull down" in combined or "lat pulldown" in combined:
-        if "short grip" in combined:
-            return "Lat Pull Down (Short Grip)"
-        if "wide grip" in combined or _WIDE_RE.search(combined):
-            return "Lat Pull Down (Wide Grip)"
         return "Lat Pull Down"
 
     if "rear delt" in combined or "rear fly" in combined:

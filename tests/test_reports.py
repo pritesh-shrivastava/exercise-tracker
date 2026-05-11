@@ -86,7 +86,7 @@ def test_body_part_rear_delt_not_back():
 
 
 def test_body_part_leg_curl_not_arms():
-    assert _body_part("Leg Curl") == "Legs"
+    assert _body_part("Hamstring Curl") == "Legs"
 
 
 # --- Date formatting ---

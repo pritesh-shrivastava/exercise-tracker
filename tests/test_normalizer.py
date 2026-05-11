@@ -1,8 +1,8 @@
 """Tests for tracker.normalizer.normalize_exercise."""
 
 import pytest
-from tracker.normalizer import normalize_exercise
 
+from tracker.normalizer import normalize_exercise
 
 # --- Bench press ---
 
@@ -28,10 +28,10 @@ def test_bench_no_press_falls_through():
 # --- Typo fixes ---
 
 def test_typo_should_press():
-    assert normalize_exercise("should press", "") == "Shoulder Press"
+    assert normalize_exercise("should press", "") == "Dumbbell Shoulder Press"
 
 def test_typo_should_press_in_raw():
-    assert normalize_exercise("shoulder", "should press 3x10") == "Shoulder Press"
+    assert normalize_exercise("shoulder", "should press 3x10") == "Dumbbell Shoulder Press"
 
 def test_typo_tricep_pulldown():
     assert normalize_exercise("tricep pulldown", "") == "Tricep Pushdown"
@@ -55,13 +55,13 @@ def test_lat_pulldown_no_space():
     assert normalize_exercise("lat pulldown", "") == "Lat Pull Down"
 
 def test_lat_pull_down_short_grip():
-    assert normalize_exercise("lat pull down", "lat pull down short grip 3x10") == "Lat Pull Down (Short Grip)"
+    assert normalize_exercise("lat pull down", "lat pull down short grip 3x10") == "Lat Pull Down"
 
 def test_lat_pull_down_wide_grip_explicit():
-    assert normalize_exercise("lat pull down", "lat pull down wide grip 3x10") == "Lat Pull Down (Wide Grip)"
+    assert normalize_exercise("lat pull down", "lat pull down wide grip 3x10") == "Lat Pull Down"
 
 def test_lat_pull_down_wide_word():
-    assert normalize_exercise("lat pull down", "lat pull down wide 3x10") == "Lat Pull Down (Wide Grip)"
+    assert normalize_exercise("lat pull down", "lat pull down wide 3x10") == "Lat Pull Down"
 
 
 # --- Rear delt ---
@@ -79,13 +79,13 @@ def test_rear_delt_in_raw():
 # --- Canonical dict lookups ---
 
 @pytest.mark.parametrize("exercise,expected", [
-    ("shoulder press", "Shoulder Press"),
+    ("shoulder press", "Dumbbell Shoulder Press"),
     ("bicep curl", "Bicep Curl"),
     ("bicep curl on cable", "Bicep Curl on Cable"),
     ("bicep preacher curl", "Bicep Preacher Curl"),
     ("reverse curl on cable", "Reverse Curl on Cable"),
-    ("seated row", "Seated Row"),
-    ("horizontal rows", "Horizontal Row"),
+    ("seated row", "Seated Horizontal Row"),
+    ("horizontal rows", "Seated Horizontal Row"),
     ("horizontal leg press", "Horizontal Leg Press"),
     ("chest press vertical", "Chest Press Vertical"),
     ("assisted pullup", "Assisted Pullup"),
@@ -94,11 +94,11 @@ def test_rear_delt_in_raw():
     ("lateral raise", "Lateral Raise"),
     ("front raise", "Front Raise"),
     ("leg extension", "Leg Extension"),
-    ("leg curl", "Leg Curl"),
-    ("leg press", "Leg Press"),
+    ("leg curl", "Hamstring Curl"),
+    ("leg press", "45 Degree Leg Press"),
     ("sumo squat", "Sumo Squat"),
     ("hamstring curl", "Hamstring Curl"),
-    ("abs crunch", "Abs Crunch"),
+    ("abs crunch", "Seated Abs Crunch Machine"),
 ])
 def test_canonical(exercise, expected):
     assert normalize_exercise(exercise, "") == expected

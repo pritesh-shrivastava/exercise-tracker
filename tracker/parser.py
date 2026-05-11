@@ -152,20 +152,31 @@ def _strip_trailing_junk(name: str) -> str:
 def detect_variations(exercise: str, text: str) -> list[str]:
     lowered_text = text.lower()
     lowered_exercise = exercise.lower()
+    combined = f"{lowered_exercise} {lowered_text}"
+
+    # Bench press: flat / incline / decline
     is_bench = "bench" in lowered_text or "bench" in lowered_exercise
-    if not is_bench:
-        return ["default"]
-    if "flat" in lowered_text:
+    if is_bench:
+        if "flat" in lowered_text:
+            return ["flat"]
+        has_incline = "incline" in lowered_text
+        has_decline = "decline" in lowered_text
+        if has_incline and has_decline:
+            return ["incline", "decline"]
+        if has_incline:
+            return ["incline"]
+        if has_decline:
+            return ["decline"]
         return ["flat"]
-    has_incline = "incline" in lowered_text
-    has_decline = "decline" in lowered_text
-    if has_incline and has_decline:
-        return ["incline", "decline"]
-    if has_incline:
-        return ["incline"]
-    if has_decline:
-        return ["decline"]
-    return ["flat"]
+
+    # Lat pull down: short grip / wide grip
+    if "lat pull" in combined or "lat pulldown" in combined:
+        if "short grip" in combined:
+            return ["short grip"]
+        if "wide grip" in combined or "wide" in combined:
+            return ["wide grip"]
+
+    return ["default"]
 
 
 def _clean_exercise_name(raw_name: str) -> str:
