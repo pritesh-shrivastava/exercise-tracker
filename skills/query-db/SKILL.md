@@ -9,6 +9,7 @@ version: 1.0.0
 When the user asks:
 - "show the database", "show the table", "show rows", "show me the db"
 - "peek at the data", "what's in the database", "browse workouts"
+- "top 5", "top N", "last 5", "last N" (any request to view raw table rows)
 - Any request to view raw table contents
 
 ## Procedure
@@ -31,12 +32,16 @@ for r in rows:
    - `id`
    - `raw_text`
    - `details`
+   - `source`
 
-3. Show the row count at the end.
+3. **Hide `variation`** if the value is `"default"` — only show it when it's `flat`, `incline`, or `decline`.
+
+4. Show the row count at the end.
 
 ## Pitfalls
 
-- **Exclude columns**: `id`, `raw_text`, and `details` should never appear in output.
+- **Exclude columns**: `id`, `raw_text`, `details`, and `source` should never appear in output.
+- **Hide default variation**: skip `variation` when it's `"default"`. Show it only for bench angles (`flat`, `incline`, `decline`).
 - **Dumbbell weight display**: `weight_kg` stores total weight. If `per_hand=1`, mention the per-hand value in parentheses.
 - **Telegram has no table syntax** — use key: value pairs per row or a structured list. Markdown `##` headers work.
 - Large tables: ask if they want top N or all rows.

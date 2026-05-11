@@ -43,4 +43,4 @@ When the user's request matches an available exercise-tracker skill, invoke it v
 - User pastes workout lines → load `log-workout` skill
 - User asks for summary, PRs, stats → load `workout-summary` skill
 - User asks for backup or database save → load `backup-db` skill
-- User asks to see the table, DB, rows, or browse data → load `query-db` skill
+- User asks to see the table, DB, rows, browse data, top N, last N → load `query-db` skill
