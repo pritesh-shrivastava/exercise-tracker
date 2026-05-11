@@ -1,6 +1,6 @@
 # exercise-tracker
 
-Personal workout tracker. Hermes Agent is the Telegram interface. Python + SQLite. No external runtime dependencies.
+Personal workout tracker. **Mercury** (Hermes Agent) is the Telegram interface. Python + SQLite. No external runtime dependencies.
 
 ## Quick commands
 
@@ -11,34 +11,34 @@ uv run python summary.py --prs                        # personal records by body
 uv run pytest                                         # run tests
 uv run ruff check .                                   # lint
 uv run mypy tracker/ summary.py log_workout.py        # type check
+uv run python scripts/backfill_structured.py           # backfill structured columns after schema change
 ```
 
 ## Project structure
 
 ```
 tracker/          — core library (parser, normalizer, core DB helpers, PR reports)
-scripts/          — one-off utilities (normalize_existing.py, restore_db.sh)
-tests/            — pytest suite (test_parser.py, test_reports.py)
-skills/           — Hermes agent SKILL.md definitions
+scripts/          — one-off utilities (backfill_structured.py, restore_db.sh)
+tests/            — pytest suite (test_parser.py, test_normalizer.py, test_reports.py)
+skills/           — Hermes agent SKILL.md definitions (log-workout, workout-summary, backup-db)
 log_workout.py    — CLI entry point for logging
 summary.py        — CLI entry point for summaries and PRs
 memory_template.md — seed for ~/.hermes/memories/MEMORY.md
+design.md         — data model, variation rules, logging behaviour
 ```
+
+## Key conventions
+
+- **Weight stored as total** (not per-hand), with `per_hand` boolean flag
+- **DB path**: `data/workouts.sqlite` in repo root
+- **14 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand
+- **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
+- **Columns to hide**: `details`, `raw_text`, `id` when displaying
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+When the user's request matches an available exercise-tracker skill, invoke it via the skill tool:
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
+- User pastes workout lines → load `log-workout` skill
+- User asks for summary, PRs, stats → load `workout-summary` skill
+- User asks for backup or database save → load `backup-db` skill

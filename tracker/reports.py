@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
@@ -29,26 +28,11 @@ class PRRow:
     details: str
     workout_date: str
     raw_text: str
-
-
-def _parse_weight(details: str) -> float:
-    if not details:
-        return -1.0
-    m = re.search(r"@\s*([0-9]+(?:\.[0-9]+)?(?:\s*\+\s*[0-9]+(?:\.[0-9]+)?)*)(?:\s*[a-z]+)?", details.lower())
-    if not m:
-        return -1.0
-    parts = [p for p in re.split(r"\s*\+\s*", m.group(1)) if p]
-    try:
-        return float(sum(float(p) for p in parts))
-    except ValueError:
-        return -1.0
-
-
-def _parse_reps_sets(details: str) -> tuple[int, int]:
-    m = re.search(r"(\d+)x(\d+)", details or "")
-    if not m:
-        return (-1, -1)
-    return int(m.group(1)), int(m.group(2))
+    sets: int = 0
+    reps: int = 0
+    weight_kg: float | None = None
+    equipment: str = ""
+    per_hand: bool = False
 
 
 def _body_part(exercise: str) -> str:
@@ -80,7 +64,10 @@ def _load_rows(db_path: Path) -> list[PRRow]:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT workout_date, exercise, COALESCE(variation, 'default') AS variation, details, raw_text
+            SELECT workout_date, exercise, COALESCE(variation, 'default') AS variation,
+                   details, raw_text, COALESCE(sets, 0) AS sets, COALESCE(reps, 0) AS reps,
+                   weight_kg, COALESCE(equipment, '') AS equipment,
+                   COALESCE(per_hand, 0) AS per_hand
             FROM workouts WHERE workout_type = 'strength'
             ORDER BY workout_date, id
             """
@@ -92,7 +79,9 @@ def _best_sets(rows: Iterable[PRRow]) -> dict[tuple[str, str], PRRow]:
     best: dict[tuple[str, str], tuple[tuple, PRRow]] = {}
     for row in rows:
         key = (row.exercise, row.variation or "flat")
-        score = (_parse_weight(row.details), *_parse_reps_sets(row.details), row.workout_date)
+        # Score: higher weight first, then higher reps, then higher sets, then latest date
+        w = row.weight_kg if row.weight_kg is not None else -1.0
+        score = (w, row.reps, row.sets, row.workout_date)
         if key not in best or score > best[key][0]:
             best[key] = (score, row)
     return {k: v[1] for k, v in best.items()}
@@ -115,7 +104,7 @@ def format_prs(db_path: Path) -> str:
         return "No strength workouts logged yet."
 
     prs = _best_sets(rows)
-    grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))  # noqa: E501
+    grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))
     for (exercise, variation), row in prs.items():
         grouped[_body_part(exercise)][exercise].append((variation, row))
 
@@ -124,12 +113,7 @@ def format_prs(db_path: Path) -> str:
         p for p in seen if p not in BODY_PART_ORDER
     )
 
-    lines = [
-        "🏋️ Workout PR Summary",
-        f"- Body parts tracked: {len(grouped)}",
-        f"- Exercises tracked: {len(prs)}",
-        "",
-    ]
+    lines = [""]
     for body_part in order:
         emoji = BODY_PART_EMOJI.get(body_part, "•")
         lines.append(f"{emoji} {body_part}")
@@ -141,15 +125,21 @@ def format_prs(db_path: Path) -> str:
             )
             lines.append(f"- {exercise}")
             for variation, row in variations:
-                details = row.details.replace("flat; ", "")
                 date = _fmt_date(row.workout_date)
+                display_details = row.details
+                if row.per_hand and row.weight_kg:
+                    per_hand_kg = int(row.weight_kg / 2) if (row.weight_kg / 2) == int(row.weight_kg / 2) else row.weight_kg / 2
+                    # Rebuild details with total weight if details shows per-hand
+                    total_str = str(int(row.weight_kg)) if row.weight_kg == int(row.weight_kg) else str(row.weight_kg)
+                    display_details = f"{row.sets}x{row.reps} @ {total_str}"
+                    display_details = f"{display_details} ({per_hand_kg} ea.)"
                 if variation in ("default", ""):
-                    lines.append(f"  • {details} ({date})")
+                    lines.append(f"  • {display_details} ({date})")
                 elif variation == "incline and decline":
-                    lines.append(f"  • incline: {details} ({date})")
-                    lines.append(f"  • decline: {details} ({date})")
+                    lines.append(f"  • incline: {display_details} ({date})")
+                    lines.append(f"  • decline: {display_details} ({date})")
                 else:
-                    lines.append(f"  • {variation}: {details} ({date})")
+                    lines.append(f"  • {variation}: {display_details} ({date})")
         lines.append("")
 
     return "\n".join(lines).strip()

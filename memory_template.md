@@ -26,13 +26,15 @@ If only 3 days in a week: Pull, Push, Legs. Add Shoulders on day 4, Functional o
 ## Workout Logging
 
 - Database: `data/workouts.sqlite` in the exercise-tracker repo
-- Log with: `python log_workout.py "<text>"`
-- Summary: `python summary.py` (recent) or `python summary.py --prs` (PRs by body part)
+- Log with: `uv run python log_workout.py "<text>"`
+- Summary: `uv run python summary.py` (recent) or `uv run python summary.py --prs` (PRs by body part)
 - Bench press variations are tracked separately: flat, incline, decline
+- Weight is stored as **total** (not per-hand), with `per_hand` boolean flag
+- Columns to hide when displaying data: `details`, `raw_text`, `id`
 
 ## Personal Records
 
-> This section is overwritten automatically after each weekly `pr_summary.py` run.
+> This section is overwritten automatically after each weekly `python summary.py --prs` run.
 > Do not edit manually — it will be replaced on the next weekly cron.
 
 (Not yet populated — will be filled after first weekly summary.)

@@ -33,6 +33,17 @@ _CANONICAL: dict[str, str] = {
     "sumo squat": "Sumo Squat",
     "hamstring curl": "Hamstring Curl",
     "abs crunch": "Abs Crunch",
+    "dumbell": "Dumbbell",
+    "dumbbell shrug": "Dumbbell Shrug",
+    "dumbell shrug": "Dumbbell Shrug",
+    "dumbbell shrugs": "Dumbbell Shrugs",
+    "dumbell shrugs": "Dumbbell Shrugs",
+    "face pull": "Face Pull",
+    "cable rope upright row": "Cable Rope Upright Row",
+    "bodyweight abs crunch": "Bodyweight Abs Crunch",
+    "bodyweight crunch": "Bodyweight Crunch",
+    "barbell shrug": "Barbell Shrug",
+    "chest supported row": "Chest Supported Row",
 }
 
 
@@ -44,6 +55,10 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     ex = _clean(exercise)
     raw = _clean(raw_text)
     combined = f"{ex} {raw}".strip()
+
+    # Normalize "dumbell" -> "dumbbell" in cleaned text
+    combined = combined.replace("dumbell", "dumbbell")
+    ex = ex.replace("dumbell", "dumbbell")
 
     if "bench" in combined and ("press" in combined or "presa" in combined):
         return "Barbell Bench Press" if "barbell" in combined else "Dumbbell Bench Press"
@@ -70,5 +85,11 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
 
     if ex in _CANONICAL:
         return _CANONICAL[ex]
+
+    # Strip "dumbbell " prefix before canonical lookup
+    if ex.startswith("dumbbell "):
+        core = ex[9:]  # len("dumbbell ") = 9
+        if core in _CANONICAL:
+            return "Dumbbell " + _CANONICAL[core]
 
     return _SPACE_RE.sub(" ", exercise).strip().title()
