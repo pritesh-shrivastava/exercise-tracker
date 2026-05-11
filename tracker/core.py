@@ -106,7 +106,8 @@ def fetch_recent_activity(db_path: Path, recent_limit: int = 5) -> dict:
         conn.row_factory = sqlite3.Row
 
         agg = conn.execute(
-            "SELECT COUNT(DISTINCT workout_date) AS total_days, COUNT(*) AS total_entries, MIN(workout_date) AS date_min, MAX(workout_date) AS date_max FROM workouts"
+            "SELECT COUNT(DISTINCT workout_date) AS total_days, COUNT(*) AS total_entries,"
+            " MIN(workout_date) AS date_min, MAX(workout_date) AS date_max FROM workouts"
         ).fetchone()
         if not agg or agg["total_entries"] == 0:
             return {"exists": True, "empty": True}
@@ -116,7 +117,8 @@ def fetch_recent_activity(db_path: Path, recent_limit: int = 5) -> dict:
         ).fetchall()
         # Last N distinct dates, most recent first
         recent = conn.execute(
-            "SELECT workout_date, workout_type, exercise, variation, details, sets, reps, weight_kg, equipment, per_hand, raw_text"
+            "SELECT workout_date, workout_type, exercise, variation, details,"
+            " sets, reps, weight_kg, equipment, per_hand, raw_text"
             " FROM workouts WHERE workout_date IN ("
             "  SELECT DISTINCT workout_date FROM workouts ORDER BY workout_date DESC LIMIT ?"
             ") ORDER BY workout_date DESC, id",

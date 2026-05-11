@@ -274,7 +274,6 @@ def classify_line(line: str, *, previous_exercise: str = "") -> list[WorkoutReco
             all_sets.extend(MULTI_SET_OF_RE.findall(text))
             # Also match comma-separated continuation formats
             for cm in MULTI_SET_COMMA_RE.finditer(text):
-                full = cm.group(0)
                 # Check if this comma group also matched one of the other patterns
                 already = any(
                     str(cm.group("reps")) == s[1] and str(cm.group("weight")) == s[2]

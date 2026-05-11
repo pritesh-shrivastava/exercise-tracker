@@ -40,7 +40,11 @@ def _body_part(exercise: str) -> str:
     chest = ["bench press", "pec fly", "chest press", "chest fly", "push up", "pushup"]
     back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up"]
     back_exclude = ["upright row"]
-    shoulders = ["shoulder press", "arnold press", "lateral raise", "front raise", "rear delt", "face pull", "upright row", "dumbbell shrug", "dumbbell shrugs", "shrug", "shrugs"]
+    shoulders = [
+        "shoulder press", "arnold press", "lateral raise", "front raise",
+        "rear delt", "face pull", "upright row", "dumbbell shrug", "dumbbell shrugs",
+        "shrug", "shrugs",
+    ]
     legs = ["leg press", "leg extension", "leg ext", "leg curl", "hamstring curl",
             "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise"]
     arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl"]
@@ -129,7 +133,8 @@ def format_prs(db_path: Path) -> str:
                 date = _fmt_date(row.workout_date)
                 display_details = row.details
                 if row.per_hand and row.weight_kg:
-                    per_hand_kg = int(row.weight_kg / 2) if (row.weight_kg / 2) == int(row.weight_kg / 2) else row.weight_kg / 2
+                    half = row.weight_kg / 2
+                    per_hand_kg = int(half) if half == int(half) else half
                     # Rebuild details with total weight if details shows per-hand
                     total_str = str(int(row.weight_kg)) if row.weight_kg == int(row.weight_kg) else str(row.weight_kg)
                     display_details = f"{row.sets}x{row.reps} @ {total_str} kg"

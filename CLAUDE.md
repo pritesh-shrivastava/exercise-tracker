@@ -44,3 +44,10 @@ When the user's request matches an available exercise-tracker skill, invoke it v
 - User asks for summary, PRs, stats → load `workout-summary` skill
 - User asks for backup or database save → load `backup-db` skill
 - User asks to see the table, DB, rows, browse data, top N, last N → load `query-db` skill
+
+## Health Stack
+
+- typecheck: uv run mypy tracker/ summary.py log_workout.py
+- lint: uv run ruff check .
+- test: uv run pytest
+- deadcode: uv run vulture tracker/ tests/ *.py
