@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from tracker.core import fetch_summary, format_summary
+from tracker.core import fetch_recent_activity, format_recent_activity
 from tracker.reports import format_prs
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -28,7 +28,7 @@ def main() -> int:
             raise SystemExit(f"No database found at {DEFAULT_DB}")
         print(format_prs(DEFAULT_DB))
     else:
-        print(format_summary(fetch_summary(DEFAULT_DB)))
+        print(format_recent_activity(fetch_recent_activity(DEFAULT_DB)))
 
     return 0
 

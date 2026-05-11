@@ -27,7 +27,7 @@ Returns: best set per exercise + variation, grouped by body part (Chest, Back, S
 
 ## Pitfalls
 
-- `summary.py` shows the last 5 recent days only (body-part label + exercise names) — not a weekly breakdown. For weekly volume, query the DB directly or extend `fetch_summary()` in `tracker/core.py`.
+- `summary.py` shows the last 5 recent days only (body-part label + exercise names) — not a weekly breakdown. For weekly volume, query the DB directly or extend `fetch_recent_activity()` in `tracker/core.py`.
 - `pr_summary.py` ranks by weight first, then reps, then sets. High-rep low-weight entries may not surface as PRs even if they represent progress.
 - `default` variations are hidden in summary output; `flat`, `incline`, `decline` are shown explicitly for bench press.
 

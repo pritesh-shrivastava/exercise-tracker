@@ -98,7 +98,7 @@ def insert_lines(db_path: Path, text: str, source: str = "manual") -> int:
     return len(rows)
 
 
-def fetch_summary(db_path: Path, recent_limit: int = 5) -> dict:
+def fetch_recent_activity(db_path: Path, recent_limit: int = 5) -> dict:
     if not db_path.exists():
         return {"exists": False}
 
@@ -135,7 +135,7 @@ def fetch_summary(db_path: Path, recent_limit: int = 5) -> dict:
     }
 
 
-def format_summary(summary: dict) -> str:
+def format_recent_activity(summary: dict) -> str:
     if not summary.get("exists"):
         return "No database yet."
     if summary.get("empty"):
