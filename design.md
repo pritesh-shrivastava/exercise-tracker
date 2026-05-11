@@ -18,7 +18,7 @@ Each workout row stores:
 | `workout_date` | TEXT | IST date |
 | `workout_type` | TEXT | `strength`, `cardio`, or `note` |
 | `exercise` | TEXT | canonical exercise name (via normalizer) |
-| `variation` | TEXT | `default`, `flat`, `incline`, `decline` |
+| `variation` | TEXT | `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip` |
 | `details` | TEXT | compact set/reps/weight summary string |
 | `raw_text` | TEXT | original pasted input |
 | `source` | TEXT | origin of row (`manual`, `telegram`, etc.) |
@@ -41,10 +41,10 @@ Each workout row stores:
 
 ## Variation rules
 
-- Non-bench strength entries use `default`
-- Bench press entries use `flat` for the base variation
-- Bench press incline and decline are tracked as separate rows
-- Legacy summary output may still encounter old combined rows, but new logs should not create them
+- Non-bench strength entries use `default` unless a grip is specified
+- Bench press entries use `flat` for the base variation; incline and decline are tracked as separate rows
+- Lat Pull Down grip variations use `short grip` or `wide grip` in the variation column (not in the exercise name)
+- Legacy rows that stored grip in the exercise name (e.g. `Lat Pull Down (Short Grip)`) have been migrated to the variation column
 
 ## Parsing behaviour
 
@@ -65,9 +65,9 @@ Typo recovery: `woth` → `with`, `dumbell` → `dumbbell`, `biceo` → `bicep`,
 `tracker/normalizer.py` normalizes exercise names to canonical forms:
 
 - Bench press with "press" in text → `Barbell Bench Press` (if "barbell" in text) or `Dumbbell Bench Press` (default)
-- Lat pull-down → detects `short grip` / `wide grip` variants
+- Lat pull-down → always `Lat Pull Down`; grip goes into variation column via `detect_variations()`
 - Rear delt → `Rear Delt Fly`
-- Canonical dictionary for known exercises (Shoulder Press, Bicep Curl, Leg Press, etc.)
+- Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Seated Horizontal Row`, `abs crunch` → `Seated Abs Crunch Machine`
 - Title-case fallback for unknown exercises
 
 ### Equipment inference
@@ -76,7 +76,7 @@ Keyword-based on exercise name + raw text (combined):
 
 `dumbbells` | `barbell` | `cable` | `machine` | `bodyweight` | `kettlebell` | `smith machine` | `band` | `other`
 
-Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Row, Leg Press, etc.).
+Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Horizontal Row, 45 Degree Leg Press, Horizontal Leg Press, etc.).
 
 ### Logging behaviour
 
@@ -98,6 +98,7 @@ Examples: `20 min zone 2 cardio`, `5 km run 28 min`, `cycling 45 min`
 - `flat`, `incline`, and `decline` are shown for bench press
 - Summary is grouped by body part first, then exercise
 - PR scoring: highest weight → highest reps → highest sets → latest date
+- PR output is compact: one line per exercise, variations shown inline in brackets
 
 Summary responses are tiered — Hermes picks the right one based on natural language:
 
@@ -110,16 +111,17 @@ Summary responses are tiered — Hermes picks the right one based on natural lan
 
 Chest 💪 | Back 🧱 | Shoulders 🧢 | Arms 🏹 | Legs 🦵 | Core ⚡ | Other 📦
 
-Keywords for each group are in `tracker/reports.py:_body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Leg Curl` → Legs (not Arms).
+Keywords for each group are in `tracker/reports.py:_body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Hamstring Curl` → Legs (not Arms).
 
 ## Hermes skills architecture
 
 Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
 
-Three skills, all created in `skills/`:
+Four skills, all in `skills/`:
 - `log-workout` — parse and insert lines, handle incline/decline split, confirm count
 - `workout-summary` — pick the right summary tier and format for Telegram
 - `backup-db` — dump SQLite, upload to Azure Blob, prune to last 3 copies
+- `query-db` — browse raw table rows, excluding id/raw_text/details
 
 The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
 
@@ -144,5 +146,5 @@ Hermes memory stores facts that persist across sessions but are not derivable fr
 - Backfill older rows when schema rules change: `uv run python scripts/backfill_structured.py`
 - Keep the repo copyable as-is, with SQLite and env vars being enough to restore it
 - Skills and memory belong to the agent layer — they are not part of the database backup, but should be committed to the repo so they migrate with it
-- After changing parser/normalizer, run `uv run pytest` — 96+ tests should pass
+- After changing parser/normalizer, run `uv run pytest` — 98 tests should pass
 - SQLite auto-ALTER in `ensure_db()` handles schema migration on startup; no manual DDL needed

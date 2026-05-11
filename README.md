@@ -96,7 +96,7 @@ Hermes Agent is the Telegram interface. There is no separate bot to run — just
 
 - "squats 3x5 @ 100kg" → logged
 - "20 min zone 2 cardio" → logged
-- "show my PRs" → runs `python summary.py --prs`, sends results back
+- "show my PRs" → runs `python summary.py --prs`, sends compact one-line-per-exercise results back
 - "show recent workouts" → runs `python summary.py`
 - Voice memos → auto-transcribed by Hermes, then logged
 
