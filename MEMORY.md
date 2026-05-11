@@ -7,7 +7,7 @@ This file lives in the repo root so it follows the project wherever it's cloned.
 
 ## Project Overview
 
-Personal workout tracker. **Mercury** is the Telegram interface. Python + SQLite. No external runtime dependencies.
+Personal workout tracker. Hermes Agent is the Telegram interface. Python + SQLite. No external runtime dependencies.
 
 - **Log a workout:** `uv run python log_workout.py "exercise 3x5 @ 100kg"`
 - **Recent activity:** `uv run python summary.py`
@@ -105,4 +105,4 @@ If only 3 days: Pull, Push, Legs. Add Shoulders on day 4, Functional on day 5.
 
 ## Agent Name
 
-The user refers to the agent as **Mercury**. Config files use "Mercury" for personality names.
+The user refers to the agent as Mercury. Config files use "Mercury" for personality names.

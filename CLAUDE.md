@@ -1,6 +1,6 @@
 # exercise-tracker
 
-Personal workout tracker. **Mercury** (Hermes Agent) is the Telegram interface. Python + SQLite. No external runtime dependencies.
+Personal workout tracker. Hermes Agent is the Telegram interface. Python + SQLite. No external runtime dependencies.
 
 ## Quick commands
 

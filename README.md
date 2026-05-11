@@ -2,7 +2,7 @@
 
 A small, portable workout tracker that you can move to another VPS later.
 
-Paste what you did in natural language, and the tracker stores it in a local SQLite database. **Mercury** (Hermes Agent) is the interface — chat with it on Telegram to log and query. The data stays separate and portable.
+Paste what you did in natural language, and the tracker stores it in a local SQLite database. Hermes Agent is the interface — chat with it on Telegram to log and query. The data stays separate and portable.
 
 ## Why this structure
 
@@ -92,15 +92,15 @@ Follow the next available slot instead of forcing a rigid calendar:
 
 ## Telegram interface
 
-**Mercury** (Hermes Agent) is the Telegram interface. There is no separate bot to run — just chat with Mercury directly:
+Hermes Agent is the Telegram interface. There is no separate bot to run — just chat with Hermes directly:
 
 - "squats 3x5 @ 100kg" → logged
 - "20 min zone 2 cardio" → logged
 - "show my PRs" → runs `python summary.py --prs`, sends results back
 - "show recent workouts" → runs `python summary.py`
-- Voice memos → auto-transcribed by Mercury, then logged
+- Voice memos → auto-transcribed by Hermes, then logged
 
-Run `/sethome` once in your Telegram chat so Mercury knows where to deliver scheduled outputs like the weekly PR report.
+Run `/sethome` once in your Telegram chat so Hermes knows where to deliver scheduled outputs like the weekly PR report.
 
 ## Paste format examples
 
@@ -140,7 +140,7 @@ Run `/sethome` once in your Telegram chat so Mercury knows where to deliver sche
 
 ## Hermes Agent skills
 
-The `skills/` folder teaches Mercury the procedures for this tracker. Each skill is a folder named `<name>/` with a `SKILL.md` inside:
+The `skills/` folder teaches Hermes the procedures for this tracker. Each skill is a folder named `<name>/` with a `SKILL.md` inside:
 
 ```
 skills/

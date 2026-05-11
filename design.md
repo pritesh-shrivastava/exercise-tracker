@@ -3,7 +3,7 @@
 ## Purpose
 
 This tracker keeps workout logs portable and easy to move between VPS instances.
-The database is the source of truth. **Mercury** (Hermes Agent) is the sole interface — via Telegram for logging and queries, and via cron for scheduled reports. The Python scripts are tools that Mercury calls; they are not run directly by the user.
+The database is the source of truth. Hermes Agent is the sole interface — via Telegram for logging and queries, and via cron for scheduled reports. The Python scripts are tools that Hermes calls; they are not run directly by the user.
 
 ## Data model
 
@@ -99,7 +99,7 @@ Examples: `20 min zone 2 cardio`, `5 km run 28 min`, `cycling 45 min`
 - Summary is grouped by body part first, then exercise
 - PR scoring: highest weight → highest reps → highest sets → latest date
 
-Summary responses are tiered — Mercury picks the right one based on natural language:
+Summary responses are tiered — Hermes picks the right one based on natural language:
 
 | Level | Example trigger | Script |
 |-------|----------------|--------|
@@ -114,7 +114,7 @@ Keywords for each group are in `tracker/reports.py:_body_part()`. Special rules:
 
 ## Hermes skills architecture
 
-Skills live in `skills/<name>/SKILL.md` and teach Mercury the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
+Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
 
 Three skills, all created in `skills/`:
 - `log-workout` — parse and insert lines, handle incline/decline split, confirm count
