@@ -105,24 +105,28 @@ def fetch_summary(db_path: Path, recent_limit: int = 5) -> dict:
         conn.row_factory = sqlite3.Row
 
         agg = conn.execute(
-            "SELECT COUNT(*) AS total, MIN(workout_date) AS date_min, MAX(workout_date) AS date_max FROM workouts"
+            "SELECT COUNT(DISTINCT workout_date) AS total_days, COUNT(*) AS total_entries, MIN(workout_date) AS date_min, MAX(workout_date) AS date_max FROM workouts"
         ).fetchone()
-        if not agg or agg["total"] == 0:
+        if not agg or agg["total_entries"] == 0:
             return {"exists": True, "empty": True}
 
         type_rows = conn.execute(
             "SELECT workout_type, COUNT(*) AS cnt FROM workouts GROUP BY workout_type ORDER BY workout_type"
         ).fetchall()
+        # Last N distinct dates, most recent first
         recent = conn.execute(
             "SELECT workout_date, workout_type, exercise, variation, details, sets, reps, weight_kg, equipment, per_hand, raw_text"
-            " FROM workouts ORDER BY id DESC LIMIT ?",
+            " FROM workouts WHERE workout_date IN ("
+            "  SELECT DISTINCT workout_date FROM workouts ORDER BY workout_date DESC LIMIT ?"
+            ") ORDER BY workout_date DESC, id",
             (recent_limit,),
         ).fetchall()
 
     return {
         "exists": True,
         "empty": False,
-        "total_entries": agg["total"],
+        "total_days": agg["total_days"],
+        "total_entries": agg["total_entries"],
         "date_min": agg["date_min"],
         "date_max": agg["date_max"],
         "type_counts": {r["workout_type"]: r["cnt"] for r in type_rows},
@@ -138,6 +142,7 @@ def format_summary(summary: dict) -> str:
 
     lines = [
         "Workout summary",
+        f"- Days trained: {summary['total_days']}",
         f"- Total entries: {summary['total_entries']}",
         f"- Date range: {summary['date_min']} to {summary['date_max']}",
         "- By type:",
@@ -146,10 +151,28 @@ def format_summary(summary: dict) -> str:
         lines.append(f"  - {key}: {value}")
 
     lines.append("")
-    lines.append("Recent entries:")
+    lines.append("Recent days:")
+    last_date = None
     for row in summary["recent"]:
-        variation = f" [{row['variation']}]" if row.get("variation") else ""
-        details = f" — {row['details']}" if row.get("details") else ""
+        per_hand = row.get("per_hand", 0)
+        w = row.get("weight_kg")
+        details_raw = row.get("details") or ""
+
+        # Build clean details string
+        if w is not None and per_hand:
+            # Dumbbell: rebuild from structured columns for consistency
+            w_str = str(int(w)) if w == int(w) else str(w)
+            ea = w / 2
+            ea_str = str(int(ea)) if ea == int(ea) else str(ea)
+            details = f" {row['sets']}x{row['reps']} @ {w_str} kg ({ea_str} ea.)"
+        elif details_raw:
+            details = f" — {details_raw}"
+        else:
+            details = ""
+
+        variation = f" [{row['variation']}]" if row.get("variation") and row["variation"] not in ("default", "") else ""
         equip = f" ({row['equipment']})" if row.get("equipment") and row["equipment"] != "other" else ""
-        lines.append(f"- {row['workout_date']} | {row['workout_type']} | {row['exercise']}{variation}{details}{equip}")
+        date_label = f"\n{row['workout_date']}:" if row["workout_date"] != last_date else ""
+        lines.append(f"{date_label}    {row['exercise']}{variation}{details}{equip}")
+        last_date = row["workout_date"]
     return "\n".join(lines)
