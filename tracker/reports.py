@@ -102,6 +102,57 @@ def _fmt_date(d: str) -> str:
         return d
 
 
+def format_prs_compact(db_path: Path) -> str:
+    """One line per exercise: emoji  exercise  [variations]  sets×reps @ weight  date."""
+    rows = _load_rows(db_path)
+    if not rows:
+        return "No strength workouts logged yet."
+
+    prs = _best_sets(rows)
+    grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))
+    for (exercise, variation), row in prs.items():
+        grouped[_body_part(exercise)][exercise].append((variation, row))
+
+    seen = list(grouped.keys())
+    order = [p for p in BODY_PART_ORDER if p in seen] + sorted(
+        p for p in seen if p not in BODY_PART_ORDER
+    )
+
+    lines = []
+    for body_part in order:
+        emoji = BODY_PART_EMOJI.get(body_part, "•")
+        for exercise in sorted(grouped[body_part]):
+            _VAR_ORDER = {"default": 0, "flat": 1}
+            variations = sorted(
+                grouped[body_part][exercise],
+                key=lambda item: (_VAR_ORDER.get(item[0], 2), item[0]),
+            )
+            # Pick best row (highest weight, then most recent)
+            best_row = max(variations, key=lambda item: (
+                item[1].weight_kg or -1, item[1].workout_date
+            ))[1]
+            non_default = [v for v, _ in variations if v not in ("default", "")]
+            var_str = f"  [{', '.join(non_default)}]" if non_default else ""
+
+            w = best_row.weight_kg
+            if w is not None:
+                if best_row.per_hand:
+                    half = w / 2
+                    per_hand_kg = int(half) if half == int(half) else half
+                    total_str = str(int(w)) if w == int(w) else str(w)
+                    weight_str = f"{total_str}kg ({per_hand_kg}ea.)"
+                else:
+                    weight_str = f"{int(w) if w == int(w) else w}kg"
+                perf = f"{best_row.sets}×{best_row.reps} @ {weight_str}"
+            else:
+                perf = f"{best_row.sets}×{best_row.reps}"
+
+            date_str = _fmt_date(best_row.workout_date)
+            lines.append(f"{emoji}  {exercise:<38}{var_str:<28}{perf:<22}{date_str}")
+
+    return "\n".join(lines)
+
+
 def format_prs(db_path: Path) -> str:
     """Return the full PR report as a string suitable for print or Telegram."""
     rows = _load_rows(db_path)
