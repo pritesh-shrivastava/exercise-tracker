@@ -16,7 +16,7 @@ version: 1.0.0
 ```
 python summary.py
 ```
-Returns: total entries, date range, breakdown by type, recent activity with body-part labels.
+Returns: total entries, date range, breakdown by type, recent activity with body-part labels. Shows full exercise names as logged (no shortening).
 
 ### PR summary (full)
 ```
