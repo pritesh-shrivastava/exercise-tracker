@@ -58,8 +58,10 @@ When the user's request matches an available exercise-tracker skill, invoke it v
 
 Key mappings in `tracker/normalizer.py` — use these exact names in the DB:
 - `shoulder press` / `should press` → `Dumbbell Shoulder Press`
+- `bicep curl` → `Dumbbell Bicep Curl`
 - `leg curl` → `Hamstring Curl`
 - `leg press` → `45 Degree Leg Press`
 - `seated row` / `horizontal row` → `Seated Horizontal Row`
 - `abs crunch` → `Seated Abs Crunch Machine`
 - `lat pull down` (any grip) → `Lat Pull Down` + variation column (`short grip` / `wide grip`)
+- `tricep pushdown` → equipment is `cable` (not machine)

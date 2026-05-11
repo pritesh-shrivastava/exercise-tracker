@@ -47,7 +47,7 @@ cd /home/azureuser/exercise-tracker
 uv run python log_workout.py "squats 3x5 @ 100kg"
 uv run python log_workout.py "20 min zone 2 cardio"
 uv run python summary.py
-uv run python summary.py --prs   # personal records by body part
+uv run python summary.py --prs   # personal records — compact, one line per exercise
 ```
 
 ## Weekly training template
