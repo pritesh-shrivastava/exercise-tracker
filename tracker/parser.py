@@ -87,7 +87,6 @@ _MACHINE_EXERCISES = {
     "leg press", "horizontal leg press", "vertical leg press",
     "leg curl", "leg extension", "leg ext",
     "hamstring curl", "calf raise",
-    "tricep pushdown",
     "bicep preacher curl", "preacher curl",
     "face pull",
     "assisted pullup", "assisted pull up",
@@ -118,7 +117,7 @@ def infer_equipment(exercise: str, raw_text: str) -> str:
         return "dumbbells"
     if "kettlebell" in combined or "kettle bell" in combined:
         return "kettlebell"
-    if "cable" in combined:
+    if "cable" in combined or "tricep pushdown" in combined or "pushdown" in combined:
         return "cable"
     if "machine" in combined:
         return "machine"
