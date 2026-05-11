@@ -159,30 +159,13 @@ def format_summary(summary: dict) -> str:
         date_parts.setdefault(row["workout_date"], set()).add(_body_part(row["exercise"]))
     last_date = None
     for row in summary["recent"]:
-        per_hand = row.get("per_hand", 0)
-        w = row.get("weight_kg")
-        details_raw = row.get("details") or ""
-
-        # Build clean details string
-        if w is not None and per_hand:
-            # Dumbbell: rebuild from structured columns for consistency
-            w_str = str(int(w)) if w == int(w) else str(w)
-            ea = w / 2
-            ea_str = str(int(ea)) if ea == int(ea) else str(ea)
-            details = f" {row['sets']}x{row['reps']} @ {w_str} kg ({ea_str} ea.)"
-        elif details_raw:
-            details = f" — {details_raw}"
-        else:
-            details = ""
-
         variation = f" [{row['variation']}]" if row.get("variation") and row["variation"] not in ("default", "") else ""
-        equip = f" ({row['equipment']})" if row.get("equipment") and row["equipment"] != "other" else ""
         if row["workout_date"] != last_date:
             parts = date_parts[row["workout_date"]]
             label = " / ".join(sorted(parts))
             date_label = f"\n{row['workout_date']} ({label}):"
         else:
             date_label = ""
-        lines.append(f"{date_label}    {row['exercise']}{variation}{details}{equip}")
+        lines.append(f"{date_label}    {row['exercise']}{variation}")
         last_date = row["workout_date"]
     return "\n".join(lines)
