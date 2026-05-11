@@ -147,6 +147,7 @@ skills/
   log-workout/      — how to log workout lines from natural language
   workout-summary/  — tiered summary: recent entries, weekly volume, PRs
   backup-db/        — dump SQLite to Azure Blob and prune old copies
+  query-db/         — show raw table rows, excluding id/raw_text/details
 ```
 
 Skills are auto-discovered by Hermes on startup. The agent picks the right skill based on what you ask, then runs the procedure in `SKILL.md`. You can also trigger any skill manually.

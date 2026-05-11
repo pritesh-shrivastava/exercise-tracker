@@ -23,6 +23,7 @@ tests/            — pytest suite (test_parser.py, test_normalizer.py, test_rep
 skills/           — Hermes agent SKILL.md definitions (log-workout, workout-summary, backup-db)
 log_workout.py    — CLI entry point for logging
 summary.py        — CLI entry point for summaries and PRs
+query_db.py       — CLI entry point for raw DB queries (or just use python3 -c inline)
 memory_template.md — seed for ~/.hermes/memories/MEMORY.md
 design.md         — data model, variation rules, logging behaviour
 ```
@@ -42,3 +43,4 @@ When the user's request matches an available exercise-tracker skill, invoke it v
 - User pastes workout lines → load `log-workout` skill
 - User asks for summary, PRs, stats → load `workout-summary` skill
 - User asks for backup or database save → load `backup-db` skill
+- User asks to see the table, DB, rows, or browse data → load `query-db` skill
