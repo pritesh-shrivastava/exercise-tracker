@@ -23,7 +23,7 @@ tests/            — pytest suite (test_parser.py, test_normalizer.py, test_rep
 skills/           — Hermes agent SKILL.md definitions (log-workout, workout-summary, backup-db, query-db)
 log_workout.py    — CLI entry point for logging
 summary.py        — CLI entry point for summaries and PRs
-query_db.py       — CLI entry point for raw DB queries (or just use python3 -c inline)
+query_db.py       — does not exist; use sqlite3 CLI or python3 -c inline for raw queries
 memory_template.md — seed for ~/.hermes/memories/MEMORY.md
 design.md         — data model, variation rules, logging behaviour
 ```
