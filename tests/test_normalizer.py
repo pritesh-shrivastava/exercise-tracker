@@ -40,7 +40,7 @@ def test_typo_tricep_pushdown():
     assert normalize_exercise("tricep pushdown", "") == "Tricep Pushdown"
 
 def test_typo_biceo_curl():
-    assert normalize_exercise("biceo curl", "") == "Bicep Curl"
+    assert normalize_exercise("biceo curl", "") == "Dumbbell Bicep Curl"
 
 def test_typo_calf_rause():
     assert normalize_exercise("calf rause", "") == "Calf Raise"
@@ -80,7 +80,7 @@ def test_rear_delt_in_raw():
 
 @pytest.mark.parametrize("exercise,expected", [
     ("shoulder press", "Dumbbell Shoulder Press"),
-    ("bicep curl", "Bicep Curl"),
+    ("bicep curl", "Dumbbell Bicep Curl"),
     ("bicep curl on cable", "Bicep Curl on Cable"),
     ("bicep preacher curl", "Bicep Preacher Curl"),
     ("reverse curl on cable", "Reverse Curl on Cable"),
@@ -120,7 +120,7 @@ def test_fallback_unknown_exercise():
 # --- Case insensitivity ---
 
 def test_case_insensitive_input():
-    assert normalize_exercise("BICEP CURL", "") == "Bicep Curl"
+    assert normalize_exercise("BICEP CURL", "") == "Dumbbell Bicep Curl"
 
 def test_case_insensitive_raw():
     assert normalize_exercise("lat", "LAT PULL DOWN 3x10") == "Lat Pull Down"

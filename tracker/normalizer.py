@@ -15,7 +15,8 @@ _CANONICAL: dict[str, str] = {
     "shoulder press": "Dumbbell Shoulder Press",
     "should press": "Dumbbell Shoulder Press",
     "dumbbell shoulder press": "Dumbbell Shoulder Press",
-    "bicep curl": "Bicep Curl",
+    "bicep curl": "Dumbbell Bicep Curl",
+    "dumbbell bicep curl": "Dumbbell Bicep Curl",
     "bicep curl on cable": "Bicep Curl on Cable",
     "bicep preacher curl": "Bicep Preacher Curl",
     "reverse curl on cable": "Reverse Curl on Cable",
@@ -75,7 +76,7 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     if "tricep pulldown" in combined or "tricep pushdown" in combined:
         return "Tricep Pushdown"
     if "biceo curl" in combined:
-        return "Bicep Curl"
+        return "Dumbbell Bicep Curl"
     if "calf rause" in combined:
         return "Calf Raise"
 
