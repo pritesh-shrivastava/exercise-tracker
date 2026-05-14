@@ -11,7 +11,7 @@ from typing import Iterable
 
 BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core", "Other"]
 BODY_PART_EMOJI = {
-    "Chest": "💪",
+    "Chest": "🩻",
     "Back": "🧱",
     "Shoulders": "🧢",
     "Arms": "🏹",

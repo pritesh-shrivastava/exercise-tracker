@@ -126,11 +126,11 @@ def test_format_prs_picks_best_weight(tmp_path: Path):
     assert "70" not in result
 
 
-def test_format_prs_groups_by_body_part(tmp_path: Path):
+def test_format_prs_groups_by_body_part(tmp_path):
     db = tmp_path / "workouts.sqlite"
     insert_lines(db, "bench press 3x5 @ 80kg\nsquats 3x5 @ 100kg")
     result = format_prs(db)
-    assert "💪" in result  # Chest
+    assert "🩻" in result  # Chest
     assert "🦵" in result  # Legs
 
 
