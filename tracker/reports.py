@@ -46,7 +46,7 @@ def _body_part(exercise: str) -> str:
         "shrug", "shrugs",
     ]
     legs = ["leg press", "leg extension", "hamstring curl",
-            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise"]
+            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise", "lunge", "lunges"]
     arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl"]
     arms_exclude = ["hamstring curl", "calf curl", "back extension"]
     if any(t in name for t in chest):
@@ -59,7 +59,7 @@ def _body_part(exercise: str) -> str:
         return "Legs"
     if any(t in name for t in arms) and not any(t in name for t in arms_exclude):
         return "Arms"
-    if any(t in name for t in ["crunch", "abs", "plank", "core"]):
+    if any(t in name for t in ["crunch", "abs", "plank", "core", "leg raises", "leg raise"]):
         return "Core"
     return "Other"
 
