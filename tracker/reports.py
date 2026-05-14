@@ -14,7 +14,7 @@ BODY_PART_EMOJI = {
     "Chest": "🩻",
     "Back": "🧱",
     "Shoulders": "🧢",
-    "Arms": "🏹",
+    "Arms": "💪",
     "Legs": "🦵",
     "Core": "⚡",
     "Other": "📦",
