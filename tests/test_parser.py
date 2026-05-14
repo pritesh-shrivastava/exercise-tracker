@@ -75,10 +75,9 @@ def test_unknown_line_stored_as_note():
     assert recs[0].workout_type == "note"
 
 
-def test_empty_line_is_note():
+def test_empty_line_is_skipped():
     recs = classify_line("")
-    assert len(recs) == 1
-    assert recs[0].workout_type == "note"
+    assert len(recs) == 0
 
 
 def test_raw_text_preserved():

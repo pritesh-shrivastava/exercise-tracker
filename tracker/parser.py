@@ -248,7 +248,8 @@ def classify_line(line: str, *, previous_exercise: str = "") -> list[WorkoutReco
     """
     text = line.strip()
     if not text:
-        return [WorkoutRecord("note", "", "flat", "", line, equipment="other")]
+        # Skip empty lines
+        return []
 
     # --- Continuation line: bare "N x M [@ weight]" with no exercise name ---
     cm = CONTINUATION_RE.match(text)
