@@ -14,20 +14,25 @@ When the user sends:
 
 ## Procedure
 
-1. Pass the user's text to `log_workout.py`:
+A workout session usually arrives across multiple chat messages. **Buffer lines in conversation memory and only write to the DB when the user signals the session is done.**
+
+1. **Accumulate, don't log yet.** When the user sends one or more workout lines, append them to a running buffer for this session and reply with a short confirmation that includes the running list (e.g. "Got it. So far: squats 3x5 @ 100kg, bench 5x5 @ 70kg. Send more or say 'log it' when done."). Do **not** call `log_workout.py` yet.
+
+2. **Flush on an explicit done signal.** When the user says any of: "log it", "log this", "save", "save it", "that's it", "done", "finished", "commit", "flush", "end session" — concatenate every buffered line with newlines and make a single call:
    ```
-   python log_workout.py "<workout text>"
-   ```
-   For multi-line input:
-   ```
-   python log_workout.py "squats 3x5 @ 100kg
+   uv run python log_workout.py "squats 3x5 @ 100kg
    bench 5x5 @ 70kg
    20 min zone 2 cardio"
    ```
+   Then clear the buffer.
 
-2. Confirm the count returned: "Logged N workout line(s)."
+3. **Flush implicitly when the user moves on.** If the user changes topic (asks for a summary, PRs, backup, or starts an unrelated conversation) and the buffer is non-empty, flush it first, mention you did, then handle the new request.
 
-3. If this looks like the last session of the week, offer to run `python summary.py` (recent) or `python summary.py --prs` (personal records).
+4. **One-shot override.** If the user explicitly says "log this immediately" / "log now" with a single line, skip the buffer and call `log_workout.py` directly.
+
+5. After flushing, confirm the count returned: "Logged N workout line(s)."
+
+6. If this looks like the last session of the week, offer to run `uv run python summary.py` (recent) or `uv run python summary.py --prs` (personal records).
 
 ## Pitfalls
 
@@ -35,6 +40,8 @@ When the user sends:
 - **IST timezone is assumed** — `logged_at` and `workout_date` are always stored in IST. Do not convert timestamps.
 - **Raw text is preserved exactly** — exercise name normalization happens in `exercise_normalizer.py`, not by rewriting the user's input.
 - **Lines that don't match strength or cardio patterns** are stored as `note` type — expected behavior, not an error.
+- **Don't log line-by-line.** Each call to `log_workout.py` is a separate DB write with its own `logged_at`. Always batch the whole session into one call so all rows share a timestamp.
+- **Don't lose the buffer on correction.** If the user amends a previous line ("actually bench was 75kg not 70"), update the buffered line in place rather than appending a duplicate.
 
 ## Verification
 
