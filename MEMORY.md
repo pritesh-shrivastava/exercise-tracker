@@ -93,7 +93,7 @@ If only 3 days: Pull, Push, Legs. Add Shoulders on day 4, Functional on day 5.
 - After changing parser/normalizer, run `uv run pytest` — tests should pass
 - To backfill structured columns after a schema change: `uv run python scripts/backfill_structured.py`
 - SQLite auto-ALTER in `ensure_db()` — `core.py` handles migration on startup
-- Weekly backup + PR summary runs via Hermes cron
+- Nightly DB backup (01:00 IST) + weekly PR summary run via Hermes cron — install commands in respective SKILL.md files
 
 ## Key Decisions (Historical)
 

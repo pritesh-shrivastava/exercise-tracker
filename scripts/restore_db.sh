@@ -13,11 +13,11 @@ ACCOUNT="${AZURE_STORAGE_ACCOUNT:?AZURE_STORAGE_ACCOUNT is required}"
 CONTAINER="${AZURE_BACKUP_CONTAINER:?AZURE_BACKUP_CONTAINER is required}"
 DEST="data/workouts.sqlite"
 
-echo "Listing backups in $ACCOUNT/$CONTAINER..."
+echo "Listing .sqlite backups in $ACCOUNT/$CONTAINER..."
 LATEST=$(az storage blob list \
   --account-name "$ACCOUNT" \
   --container-name "$CONTAINER" \
-  --query "sort_by([].name, &@)[-1]" \
+  --query "sort_by([?ends_with(name, '.sqlite')], &name)[-1].name" \
   --output tsv \
   --auth-mode login)
 

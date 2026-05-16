@@ -127,9 +127,9 @@ The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separat
 
 ### Cron jobs
 
-Weekly cron runs:
-1. **PR summary**: runs `python summary.py --prs` and updates Hermes memory with latest PRs
-2. **DB backup**: runs `backup-db` skill to upload to Azure Blob and prune to last 3 copies
+Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cron/jobs.json`):
+1. **PR summary** (weekly): runs `python summary.py --prs` and updates Hermes memory with latest PRs
+2. **DB backup** (nightly at 01:00 IST): runs `backup-db` skill to upload to Azure Blob and prune to last 3 copies. Install command lives in `skills/backup-db/SKILL.md`.
 
 ## Hermes memory
 
