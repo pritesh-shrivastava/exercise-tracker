@@ -11,17 +11,17 @@ version: 1.1.0
 
 ## Schedule
 
-This skill is registered as a Hermes cron job that runs every night at 01:00 IST. Install once on the VPS:
+This skill is registered as a Hermes cron job that runs every night at 03:00 IST. Install once on the VPS:
 
 ```
-hermes cron create "0 1 * * *" "Back up the workouts database to Azure Blob Storage and prune to the last 3 copies" --skill backup-db
+hermes cron create "0 3 * * *" "Back up the workouts database to Azure Blob Storage and prune to the last 7 copies" --skill backup-db
 ```
 
 Notes:
-- The cron expression is evaluated in the Hermes process's local timezone. Ensure the VPS is on IST (`timedatectl set-timezone Asia/Kolkata`) or adjust the expression — `0 1 * * *` in UTC = 06:30 IST.
+- The cron expression is evaluated in the Hermes process's local timezone. The VPS runs on IST (`Asia/Kolkata`), so `0 3 * * *` fires at 03:00 IST. On a UTC VPS, use `30 21 * * *` (21:30 UTC = 03:00 IST next day).
 - Verify the job was created: `hermes cron list`. Job definitions are persisted to `~/.hermes/cron/jobs.json`; execution outputs land in `~/.hermes/cron/output/{job_id}/`.
 - To change the schedule, delete and recreate: `hermes cron delete <job_id>` then re-run the create command.
-- Retention is **3 most recent blobs** (see step 3 below). With a nightly schedule that's 3 days of history — bump the prune `head -n -3` if longer retention is needed.
+- Retention is **7 most recent blobs** (see step 3 below). With a nightly schedule that's 7 days of history — bump the prune `head -n -7` if longer retention is needed.
 
 ## Procedure
 
@@ -59,14 +59,14 @@ The datetime suffix means manual runs never overwrite the scheduled nightly run.
      --auth-mode login --overwrite
    ```
 
-4. Prune to keep only the 3 most recent backups **of each type** (separate retention per format):
+4. Prune to keep only the 7 most recent backups **of each type** (separate retention per format):
    ```
    for EXT in sqlite csv; do
      az storage blob list \
        --account-name $AZURE_STORAGE_ACCOUNT \
        --container-name $AZURE_BACKUP_CONTAINER \
        --query "sort_by([?ends_with(name, '.${EXT}')], &name)[].name" \
-       --output tsv | head -n -3 | xargs -r -I{} \
+       --output tsv | head -n -7 | xargs -r -I{} \
        az storage blob delete \
          --account-name $AZURE_STORAGE_ACCOUNT \
          --container-name $AZURE_BACKUP_CONTAINER \
@@ -109,5 +109,5 @@ az storage blob list \
   --container-name $AZURE_BACKUP_CONTAINER \
   --output table
 ```
-Should show up to 3 blobs of each type named `workouts-YYYYMMDDTHHMMSS.{sqlite,csv}` (≤6 total).
+Should show up to 7 blobs of each type named `workouts-YYYYMMDDTHHMMSS.{sqlite,csv}` (≤14 total).
 To restore, run `bash scripts/restore_db.sh` from the repo root — it picks the latest `.sqlite` automatically.

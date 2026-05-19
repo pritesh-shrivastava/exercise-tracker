@@ -35,6 +35,19 @@ Returns: best set per exercise + variation, grouped by body part (Chest, Back, S
 - `pr_summary.py` ranks by weight first, then reps, then sets. High-rep low-weight entries may not surface as PRs even if they represent progress.
 - `default` variations are hidden in summary output; `flat`, `incline`, `decline` are shown explicitly for bench press.
 
+## Schedule
+
+This skill is registered as a Hermes cron job that runs every Sunday at 10:00 IST. Install once on the VPS:
+
+```
+hermes cron create "0 10 * * 0" "Generate weekly PR summary and update Hermes memory with latest personal records" --skill workout-summary
+```
+
+Notes:
+- The cron expression is evaluated in the Hermes process's local timezone. The VPS runs on IST (`Asia/Kolkata`), so `0 10 * * 0` fires at 10:00 IST on Sunday. On a UTC VPS, use `30 4 * * 0` (04:30 UTC = 10:00 IST).
+- Verify the job was created: `hermes cron list`. Job definitions are persisted to `~/.hermes/cron/jobs.json`; execution outputs land in `~/.hermes/cron/output/{job_id}/`.
+- To change the schedule, delete and recreate: `hermes cron delete <job_id>` then re-run the create command.
+
 ## After the weekly PR summary
 
 The weekly cron job now uses `scripts/weekly_pr_summary.py` as a `no_agent` script. It:
