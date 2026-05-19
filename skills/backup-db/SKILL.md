@@ -49,14 +49,14 @@ The datetime suffix means manual runs never overwrite the scheduled nightly run.
      --container-name $AZURE_BACKUP_CONTAINER \
      --name "workouts-${STAMP}.sqlite" \
      --file data/workouts.sqlite \
-     --auth-mode login --overwrite
+     --account-key $AZURE_STORAGE_KEY --overwrite
 
    az storage blob upload \
      --account-name $AZURE_STORAGE_ACCOUNT \
      --container-name $AZURE_BACKUP_CONTAINER \
      --name "workouts-${STAMP}.csv" \
      --file "/tmp/workouts-${STAMP}.csv" \
-     --auth-mode login --overwrite
+     --account-key $AZURE_STORAGE_KEY --overwrite
    ```
 
 4. Prune to keep only the 7 most recent backups **of each type** (separate retention per format):
@@ -66,11 +66,12 @@ The datetime suffix means manual runs never overwrite the scheduled nightly run.
        --account-name $AZURE_STORAGE_ACCOUNT \
        --container-name $AZURE_BACKUP_CONTAINER \
        --query "sort_by([?ends_with(name, '.${EXT}')], &name)[].name" \
+       --account-key $AZURE_STORAGE_KEY \
        --output tsv | head -n -7 | xargs -r -I{} \
        az storage blob delete \
          --account-name $AZURE_STORAGE_ACCOUNT \
          --container-name $AZURE_BACKUP_CONTAINER \
-         --name {} --auth-mode login
+         --name {} --account-key $AZURE_STORAGE_KEY
    done
    ```
 
@@ -85,13 +86,13 @@ The datetime suffix means manual runs never overwrite the scheduled nightly run.
 
 - `AZURE_STORAGE_ACCOUNT` — storage account name (set in Azure portal at provisioning time)
 - `AZURE_BACKUP_CONTAINER` — container name (e.g. `workout-backups`)
-- Azure CLI authenticated via `az login` or managed identity on the VPS
+- `AZURE_STORAGE_KEY` — storage account key (Portal → Storage account → Security + networking → Access keys → key1)
 
-Set these on the VPS — for the Hermes process to inherit them, add to `~/.hermes/env` (or whichever env file the Hermes systemd unit / launcher loads) and restart Hermes. Verify with `hermes cron run backup-db` after install.
+Set these on the VPS — add to `~/.hermes/.env` and restart Hermes. Verify with `hermes cron run backup-db` after install.
 
 ## Provisioning
 
-One private blob container, created manually once via the Azure portal. After creating it, record the account and container names in the env vars above and grant the VPS access to the storage account (managed identity with **Storage Blob Data Contributor** role is the cleanest path; `az login` on the VPS also works).
+One private blob container, created manually once via the Azure portal. After creating it, record the account name, container name, and access key in the env vars above.
 
 ## Pitfalls
 
@@ -107,6 +108,7 @@ One private blob container, created manually once via the Azure portal. After cr
 az storage blob list \
   --account-name $AZURE_STORAGE_ACCOUNT \
   --container-name $AZURE_BACKUP_CONTAINER \
+  --account-key $AZURE_STORAGE_KEY \
   --output table
 ```
 Should show up to 7 blobs of each type named `workouts-YYYYMMDDTHHMMSS.{sqlite,csv}` (≤14 total).
