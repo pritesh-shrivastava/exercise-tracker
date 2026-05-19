@@ -30,10 +30,12 @@ scripts/
   backfill_structured.py     — one-off backfill of structured columns (sets, reps, weight_kg, etc.)
   normalize_existing.py      — one-off normalisation pass for old rows
   restore_db.sh              — restore database from Azure Blob backup
+  weekly_pr_summary.py       — print PR summary to stdout and update Hermes memory (run by cron)
 skills/                      — Hermes agent skill definitions (loaded on demand)
   log-workout/SKILL.md
   workout-summary/SKILL.md
   backup-db/SKILL.md
+  backup-db/scripts/csv_export.py  — Python fallback for CSV export (when sqlite3 CLI is absent)
   query-db/SKILL.md
 pyproject.toml               — uv project config with ruff, mypy, pytest
 design.md                    — data model, variation rules, logging behaviour
@@ -227,7 +229,7 @@ cp memory_template.md ~/.hermes/memories/MEMORY.md
 ## Maintenance
 
 ```bash
-uv run pytest            # 96+ tests
+uv run pytest            # 98 tests
 uv run ruff check .      # lint
 uv run mypy tracker/ summary.py log_workout.py  # type check
 ```

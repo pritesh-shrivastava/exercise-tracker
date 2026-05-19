@@ -20,7 +20,7 @@ sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 
 ```
 tracker/          — core library (parser, normalizer, core DB helpers, PR reports)
-scripts/          — one-off utilities (backfill_structured.py, restore_db.sh)
+scripts/          — utilities (backfill_structured.py, restore_db.sh, weekly_pr_summary.py)
 tests/            — pytest suite (test_parser.py, test_normalizer.py, test_reports.py)
 skills/           — Hermes agent SKILL.md definitions (log-workout, workout-summary, backup-db, query-db)
 log_workout.py    — CLI entry point for logging
