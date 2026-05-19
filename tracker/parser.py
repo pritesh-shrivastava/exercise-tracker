@@ -17,14 +17,14 @@ from tracker.normalizer import normalize_exercise
 STRENGTH_RE = re.compile(
     r"(?P<exercise>.+?)\s+"
     r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)"
-    r"(?:\s*(?:reps?)?\s*(?:@|with|woth)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?",
+    r"(?:\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?",
     re.IGNORECASE,
 )
 
-# Matches continuation lines: bare "2 x 15 with 20 kg" (no exercise name)
+# Matches continuation lines: bare "2 x 15 with 20 kg" or "1 x 15 - 43 kg" (no exercise name)
 CONTINUATION_RE = re.compile(
     r"^\s*(?P<sets>\d+)\s*x\s*(?P<reps>\d+)"
-    r"(?:\s*(?:reps?)?\s*(?:@|with|woth)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?\s*$",
+    r"(?:\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?\s*$",
     re.IGNORECASE,
 )
 
@@ -39,26 +39,28 @@ WEIGHT_FIRST_RE = re.compile(
 # Matches multi-set within a line: "N x M with W, M set(s) of R rep(s) with W"
 # Splits into separate parsed units on commas
 MULTI_SET_SPLIT_RE = re.compile(
-    r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
+    r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
     re.IGNORECASE,
 )
 
-# Pattern to detect a comma-separated multi-set line
+# Pattern to detect a comma-separated multi-set line:
+# e.g. "Goblet Squats - 2 x 15 - 10 kg, 1 x 15 - 12.5 kg"
+# or "Dumbell Shoulder press - 2 x 15 with 5 kg, 1 set of 15 rep with 7.5 kg"
 MULTI_LINE_PATTERN = re.compile(
-    r".+,\s*(?:\d+\s+set|set)\s",
+    r".+,\s*(?:\d+\s+)(?:x|set)",
     re.IGNORECASE,
 )
 
 # Matches "N set(s) of M rep(s) [@/with weight]" (no "x" separator)
 MULTI_SET_OF_RE = re.compile(
-    r"(?P<sets>\d+)\s+sets?\s+of\s+(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
+    r"(?P<sets>\d+)\s+sets?\s+of\s+(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
     re.IGNORECASE,
 )
 
 # Also matches plain "N M" formats like "1 set of 15 rep with 7.5 kg"
 # where the number after "set(s) of" is the reps
 MULTI_SET_COMMA_RE = re.compile(
-    r",\s*(?:\d+\s+(?:sets?|set)\s+of\s+)?(?P<reps>\d+)\s*(?:reps?)?\s+(?:@|with|woth)\s+(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
+    r",\s*(?:\d+\s+(?:sets?|set)\s+of\s+)?(?P<reps>\d+)\s*(?:reps?)?\s+(?:@|with|woth|-)\s+(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
     re.IGNORECASE,
 )
 

@@ -6,9 +6,13 @@ version: 1.0.0
 
 ## When to use
 
-- Default `/summary` or "show my stats" or "recent workouts" → short summary (last 5 entries)
-- "This week", "weekly summary", "how did I do this week" → weekly volume by muscle group
-- "PRs", "personal records", "full summary", "best lifts" → PR summary by body part
+When the user says ANY of these in the context of the exercise tracker:
+- "prs", "PRs", "PR", "personal records", "best lifts", "full summary", "show PRs"
+- "summary", "stats", "progress", "recent workouts", "how am I doing"
+- "this week", "weekly summary", "how did I do this week"
+- Any short command that could mean exercise PRs (especially single-word: "prs", "PRs", "stats")
+
+**Important routing note**: "prs" is the most common command. When the user says "prs" without qualification and the exercise tracker repo exists, this is ALWAYS the skill to load — not github-pr-workflow.
 
 ## Procedure
 
@@ -33,13 +37,14 @@ Returns: best set per exercise + variation, grouped by body part (Chest, Back, S
 
 ## After the weekly PR summary
 
-After running `python summary.py --prs`, update Hermes memory with the latest PRs so they're available as fast-access context in future sessions without querying the DB:
+The weekly cron job now uses `scripts/weekly_pr_summary.py` as a `no_agent` script. It:
+1. Runs `python summary.py --prs` to generate the PR output.
+2. Parses the output into structured markdown.
+3. Updates MEMORY.md with the `## Personal Records` section.
 
-1. Parse the PR output — best set per exercise + variation.
-2. Write the results into memory under a `## Personal Records` section, replacing any previous entries.
-3. Include the date so it's clear when the snapshot was taken.
+This happens automatically — no manual steps needed.
 
-This runs automatically as part of the weekly cron — no manual update needed.
+For manual ad-hoc runs, just use `python summary.py --prs` directly. The memory update is handled by the cron script.
 
 ## Verification
 

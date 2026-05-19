@@ -96,6 +96,7 @@ One private blob container, created manually once via the Azure portal. After cr
 ## Pitfalls
 
 - Run from the repo root so `data/workouts.sqlite` resolves correctly.
+- **`sqlite3` CLI may not be installed.** This VPS has Python's `sqlite3` module but not the standalone CLI. If `sqlite3` command fails, use the Python fallback: `python /home/azureuser/exercise-tracker/skills/backup-db/scripts/csv_export.py /tmp/workouts-${STAMP}.csv`. Or directly: `python -c "import sqlite3, csv; ..."`
 - The prune step is destructive; verify the blob list looks correct before running in a new environment.
 - `STAMP` is captured once at the top of the run — sqlite, csv, and prune all use the same timestamp. Do not recompute it inside each step or the upload names will drift.
 - The container holds **both** .sqlite and .csv blobs. The prune loop separates them by extension; `restore_db.sh` filters to `.sqlite` so the CSVs don't confuse it.
