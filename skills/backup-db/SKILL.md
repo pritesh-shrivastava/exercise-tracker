@@ -80,7 +80,7 @@ The datetime suffix means manual runs never overwrite the scheduled nightly run.
    rm -f "/tmp/workouts-${STAMP}.csv"
    ```
 
-6. Confirm remaining blobs and report counts (expect ≤3 of each type).
+6. Confirm remaining blobs and report counts (expect ≤7 of each type).
 
 ## Required env vars
 
@@ -98,6 +98,7 @@ One private blob container, created manually once via the Azure portal. After cr
 
 - Run from the repo root so `data/workouts.sqlite` resolves correctly.
 - **`sqlite3` CLI may not be installed.** This VPS has Python's `sqlite3` module but not the standalone CLI. If `sqlite3` command fails, use the Python fallback: `python /home/azureuser/exercise-tracker/skills/backup-db/scripts/csv_export.py /tmp/workouts-${STAMP}.csv`. Or directly: `python -c "import sqlite3, csv; ..."`
+- **Account key not in env.** If `$AZURE_STORAGE_KEY` is empty, retrieve it at runtime: `az storage account keys list --account-name $AZURE_STORAGE_ACCOUNT --query "[0].value" -o tsv`. Export it as `AZURE_STORAGE_KEY` before the upload commands. This requires the `az` session to have access to list keys (Contributor or Owner on the storage account) — which is a lower bar than the Blob Data Contributor role needed for `--auth-mode login`.\n- **`--auth-mode login` needs Blob Data Contributor.** On this VPS, the `az login` identity has Contributor but NOT Storage Blob Data Contributor, so `--auth-mode login` fails with a permissions error even though `az account show` confirms you're logged in. Always use `--account-key $AZURE_STORAGE_KEY` (not `--auth-mode login`) for blob operations here.
 - The prune step is destructive; verify the blob list looks correct before running in a new environment.
 - `STAMP` is captured once at the top of the run — sqlite, csv, and prune all use the same timestamp. Do not recompute it inside each step or the upload names will drift.
 - The container holds **both** .sqlite and .csv blobs. The prune loop separates them by extension; `restore_db.sh` filters to `.sqlite` so the CSVs don't confuse it.

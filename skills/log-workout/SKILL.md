@@ -20,7 +20,7 @@ A workout session usually arrives across multiple chat messages. **Buffer lines 
 
 2. **Flush on an explicit done signal.** When the user says any of: "log it", "log this", "save", "save it", "that's it", "done", "finished", "commit", "flush", "end session" — concatenate every buffered line with newlines and make a single call:
    ```
-   uv run python log_workout.py "squats 3x5 @ 100kg
+   python log_workout.py "squats 3x5 @ 100kg
    bench 5x5 @ 70kg
    20 min zone 2 cardio"
    ```
@@ -32,14 +32,14 @@ A workout session usually arrives across multiple chat messages. **Buffer lines 
 
 5. After flushing, confirm the count returned: "Logged N workout line(s)."
 
-6. If this looks like the last session of the week, offer to run `uv run python summary.py` (recent) or `uv run python summary.py --prs` (personal records).
+6. If this looks like the last session of the week, offer to run `python summary.py` (recent) or `python summary.py --prs` (personal records).
 
 ## Post-flush verification (MANDATORY)
 
 After every log, run `python summary.py --prs` and verify:
 
 1. **Weights are present** for every exercise that had them in the buffer. A missing weight means the parser dropped it — fix immediately with SQL.
-2. **Exercise names are canonical.** No new variants (e.g. "Calf Raises" alongside existing "Calf Raise", "Hamstring Curls" vs "Hamstring Curl"). Fix with SQL: `UPDATE workouts SET exercise='<canonical>' WHERE id=<id>`.
+2. **Exercise names are canonical — no plural drift.** No new variants (e.g. "Calf Raises" alongside existing "Calf Raise", "Barbell Curls" vs "Barbell Curl", "Hamstring Curls" vs "Hamstring Curl"). If the same exercise appears twice in PR output under slightly different names, merge with SQL: `UPDATE workouts SET exercise='<canonical singular>' WHERE exercise='<variant>'`.
 3. **No bogus exercise rows.** The parser sometimes creates rows where the exercise name is a raw fragment like "1 x 15 - 43 kg" instead of merging it as a continuation of the previous exercise. Fix by updating `exercise`, `sets`, `reps`, `weight_kg`, and `variation` for that row via SQL.
 4. If the `--prs` output looks clean, then confirm with the user.
 
@@ -49,7 +49,8 @@ The parser has known gaps. After every log, query the new rows (`WHERE id > <las
 
 - **Continuation lines treated as new exercises.** When the user sends a weight-only follow-up line (e.g. "1 x 15 - 43 kg" after "Leg extension - 2 x 15 - 36 kg"), the parser creates a row with `exercise='1 x 15 - 43 kg'` instead of merging it into the previous exercise. Fix: `UPDATE workouts SET exercise='<canonical>', sets=1, reps=15, weight_kg=43, variation='default' WHERE id=<bogus_id>`.
 - **Comma-separated mixed weights dropped.** Lines like "Goblet Squats - 2 x 15 - 10 kg, 1 x 15 - 12.5 kg" only parse the first part; the second set is lost entirely. Currently fixed manually — split into two workouts rows with SQL.
-- **Weight dropped when present in input.** If the --prs output shows no weight for an exercise that had one in the buffer, the parser ate it. Common with multi-set lines or lines with trailing qualifiers like "(machine)". Fix by setting `weight_kg` directly.
+- **Weight dropped when present in input.** If the --prs output shows no weight for an exercise that had one in the buffer, the parser ate it. Common causes: multi-set lines, lines with trailing parenthetical qualifiers like "45 Degree T Bar Row (Machine) - 3 x 15 - 15 kg" where the `(Machine)` suffix interferes with the weight regex. Fix by setting `weight_kg` directly via SQL.
+- **Plural name drift creates fork in DB.** Input like "Barbell Curl" vs "Barbell Curls" get stored as separate exercises, appearing twice in PR output. The normalizer only handles canonical form detection (e.g. "dumbell" → "dumbbell"), not pluralization. Fix: `UPDATE workouts SET exercise='<singular canonical>' WHERE exercise='<plural variant>'`. Common offenders: curl/curls, squat/squats, lunge/lunges, raise/raises, crunch/crunches.
 ## Pitfalls
 
 - **per_hand: user means total weight, not per-hand.** When the user says "7.5 kg" for dumbbell exercises, it's **total weight** (per_hand=0), never per-hand. "7.5 + 7.5 kg" means 15kg total with per_hand=1. "7.5 kg" without modifiers = total weight, per_hand=0. The parser's per_hand logic has caused corrections from the user — always leave per_hand=0 unless the input explicitly says "each" or "per hand".

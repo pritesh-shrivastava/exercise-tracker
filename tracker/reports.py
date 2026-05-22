@@ -59,7 +59,7 @@ def _body_part(exercise: str) -> str:
         return "Legs"
     if any(t in name for t in arms) and not any(t in name for t in arms_exclude):
         return "Arms"
-    if any(t in name for t in ["crunch", "abs", "plank", "core", "leg raises", "leg raise"]):
+    if any(t in name for t in ["crunch", "abs", "plank", "core", "leg raises", "leg raise", "situp", "situps"]):
         return "Core"
     return "Other"
 

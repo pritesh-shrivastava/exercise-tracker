@@ -17,7 +17,7 @@ When the user asks:
 1. Query all rows (or with a LIMIT if the user asks for top N):
 
 ```bash
-uv run python3 -c "
+python -c "
 import sqlite3, json
 conn = sqlite3.connect('data/workouts.sqlite')
 conn.row_factory = sqlite3.Row

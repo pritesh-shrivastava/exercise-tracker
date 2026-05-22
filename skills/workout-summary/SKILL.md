@@ -28,6 +28,12 @@ python summary.py --prs
 ```
 Returns: best set per exercise + variation, grouped by body part (Chest, Back, Shoulders, Arms, Legs, Core, Other).
 
+### Output delivery rule
+
+**Deliver raw command output verbatim.** When the user asks for PRs, summary, or stats, paste the raw `summary.py` output directly. Do NOT convert to markdown tables, bullet lists, or add commentary. The user wants to see the exact shell output. Use a code block (` ``` `). Only summarize or analyze if the user explicitly asks "what do you think?" or "analyze this."
+
+This applies to ALL summary commands: `python summary.py`, `python summary.py --prs`, and any future summary variants.
+
 
 ## Pitfalls
 
