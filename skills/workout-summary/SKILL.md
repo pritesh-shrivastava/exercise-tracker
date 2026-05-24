@@ -39,6 +39,7 @@ This applies to ALL summary commands: `python summary.py`, `python summary.py --
 
 - `summary.py` shows the last 5 recent days only (body-part label + exercise names) — not a weekly breakdown. For weekly volume, query the DB directly or extend `fetch_recent_activity()` in `tracker/core.py`.
 - `pr_summary.py` ranks by weight first, then reps, then sets. High-rep low-weight entries may not surface as PRs even if they represent progress.
+- **PR date shows earliest achievement, not most recent.** When weight and reps are tied across multiple sessions, the PR date is the FIRST time you hit that weight/reps combo — not the latest. If a PR date looks suspiciously recent when you know you've hit that weight before, the tiebreaker may be wrong; check `tracker/reports.py` `_best_sets()` for the `_neg_date` logic.
 - `default` variations are hidden in summary output; `flat`, `incline`, `decline` are shown explicitly for bench press.
 
 ## Schedule

@@ -6,6 +6,10 @@ Designed to be run as a cron script. Prints the PR summary to stdout
 with structured PR data so the agent has fast access.
 """
 
+NOTE: Deployed copy at ~/.hermes/scripts/weekly_pr_summary.py
+(Hermes cron sandbox requires scripts there). That copy has
+BASE_DIR hardcoded — update both when DB path changes.
+
 from __future__ import annotations
 
 import re
