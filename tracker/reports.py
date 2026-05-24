@@ -84,12 +84,22 @@ def _best_sets(rows: Iterable[PRRow]) -> dict[tuple[str, str], PRRow]:
     best: dict[tuple[str, str], tuple[tuple, PRRow]] = {}
     for row in rows:
         key = (row.exercise, row.variation or "flat")
-        # Score: higher weight first, then higher reps, then higher sets, then latest date
+        # Score: higher weight first, then higher reps, then higher sets, then earliest date
         w = row.weight_kg if row.weight_kg is not None else -1.0
-        score = (w, row.reps, row.sets, row.workout_date)
+        # Use negative date so earlier dates score higher (earliest = first PR)
+        score = (w, row.reps, row.sets, _neg_date(row.workout_date))
         if key not in best or score > best[key][0]:
             best[key] = (score, row)
     return {k: v[1] for k, v in best.items()}
+
+
+def _neg_date(d: str) -> int:
+    """Return negated ordinal so earlier dates rank higher in numeric comparison."""
+    try:
+        dt = datetime.strptime(d, "%Y-%m-%d").date()
+        return -dt.toordinal()
+    except ValueError:
+        return 0
 
 
 def _fmt_date(d: str) -> str:
@@ -127,9 +137,9 @@ def format_prs_compact(db_path: Path) -> str:
                 grouped[body_part][exercise],
                 key=lambda item: (_VAR_ORDER.get(item[0], 2), item[0]),
             )
-            # Pick best row (highest weight, then most recent)
+            # Pick best row (highest weight, then earliest date)
             best_row = max(variations, key=lambda item: (
-                item[1].weight_kg or -1, item[1].workout_date
+                item[1].weight_kg or -1, _neg_date(item[1].workout_date)
             ))[1]
             non_default = [v for v, _ in variations if v not in ("default", "")]
             var_str = f"  [{', '.join(non_default)}]" if non_default else ""

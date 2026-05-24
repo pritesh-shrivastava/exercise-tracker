@@ -65,6 +65,10 @@ This happens automatically — no manual steps needed.
 
 For manual ad-hoc runs, just use `python summary.py --prs` directly. The memory update is handled by the cron script.
 
+## Pitfalls
+
+- **Emoji-heavy output may not render on Telegram.** `summary.py --prs` uses emoji body-part labels (🩻🧱🧢💪🦵⚡). If the user says they can't see the output or asks for it again, DO NOT resend the raw emoji output. Instead, reformat without emojis using plain section headers (`### Chest`, `### Back`, etc.) inside a code block. The user prefers to see the data, not the emoji. If the raw output rendered fine on your end but the user still says \"Cant see\", trust them — strip and reformat.
+
 ## Verification
 
 Both scripts print to stdout. Output should not be empty if workouts have been logged.
