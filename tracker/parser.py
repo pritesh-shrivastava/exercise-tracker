@@ -184,12 +184,16 @@ def detect_variations(exercise: str, text: str) -> list[str]:
 def _clean_exercise_name(raw_name: str) -> str:
     """Clean an exercise name by stripping angle words and trailing junk."""
     name = _TRAILING_JUNK_RE.sub("", raw_name).strip()
-    # Remove angle words (incline, decline, flat) and "and" conjunctions
-    # between them from the exercise name
-    parts = _ANGLE_WORDS.split(name)
-    cleaned = parts[0].strip() if parts else name
+    # Keep a leading angle word intact; only later occurrences are descriptors.
+    first, sep, rest = name.partition(" ")
+    if sep:
+        rest = _ANGLE_WORDS.sub("", rest)
+        cleaned = f"{first} {rest}".strip()
+    else:
+        cleaned = name
     # Also strip trailing "and" or "&"
     cleaned = re.sub(r"\s+(and|&)\s*$", "", cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned
 
 
