@@ -9,7 +9,6 @@ import re
 
 _STRIP_RE = re.compile(r"[^a-z0-9+\s]")
 _SPACE_RE = re.compile(r"\s+")
-_WIDE_RE = re.compile(r"\bwide\b")
 _TRAILING_PAREN_RE = re.compile(r"\s*\([^)]*\)\s*$")
 
 _CANONICAL: dict[str, str] = {
