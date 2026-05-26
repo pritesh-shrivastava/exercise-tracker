@@ -8,7 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from tracker.parser import WorkoutRecord, classify_lines
-from tracker.reports import _body_part
+from tracker.reports import body_part
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -158,7 +158,7 @@ def format_recent_activity(summary: dict) -> str:
     # Pre-compute body-part label per date
     date_parts: dict[str, set[str]] = {}
     for row in summary["recent"]:
-        date_parts.setdefault(row["workout_date"], set()).add(_body_part(row["exercise"]))
+        date_parts.setdefault(row["workout_date"], set()).add(body_part(row["exercise"]))
     last_date = None
     for row in summary["recent"]:
         variation = f" [{row['variation']}]" if row.get("variation") and row["variation"] not in ("default", "") else ""

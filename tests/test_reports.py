@@ -6,7 +6,7 @@ import pytest
 
 from tracker.core import ensure_db, insert_lines
 from tracker.parser import classify_lines, infer_equipment
-from tracker.reports import _body_part, _fmt_date, format_prs_compact as format_prs
+from tracker.reports import body_part, _fmt_date, format_prs_compact as format_prs
 
 # --- Parser structured output tests ---
 
@@ -78,15 +78,15 @@ def test_infer_equipment(exercise, raw, expected):
     ("Dumbbell Shrugs", "Shoulders"),
 ])
 def test_body_part_classification(exercise, expected):
-    assert _body_part(exercise) == expected
+    assert body_part(exercise) == expected
 
 
 def test_body_part_rear_delt_not_back():
-    assert _body_part("Rear Delt Fly") == "Shoulders"
+    assert body_part("Rear Delt Fly") == "Shoulders"
 
 
 def test_body_part_leg_curl_not_arms():
-    assert _body_part("Hamstring Curl") == "Legs"
+    assert body_part("Hamstring Curl") == "Legs"
 
 
 # --- Date formatting ---

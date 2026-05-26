@@ -111,7 +111,7 @@ Summary responses are tiered — Hermes picks the right one based on natural lan
 
 Chest 💪 | Back 🧱 | Shoulders 🧢 | Arms 🏹 | Legs 🦵 | Core ⚡ | Other 📦
 
-Keywords for each group are in `tracker/reports.py:_body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Hamstring Curl` → Legs (not Arms).
+Keywords for each group are in `tracker/reports.py:body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Hamstring Curl` → Legs (not Arms).
 
 ## Hermes skills architecture
 

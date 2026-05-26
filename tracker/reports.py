@@ -35,7 +35,7 @@ class PRRow:
     per_hand: bool = False
 
 
-def _body_part(exercise: str) -> str:
+def body_part(exercise: str) -> str:
     name = exercise.lower()
     chest = ["bench press", "pec fly", "chest press", "chest fly", "push up", "pushup"]
     back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up", "back extension"]
@@ -121,7 +121,7 @@ def format_prs_compact(db_path: Path) -> str:
     prs = _best_sets(rows)
     grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))
     for (exercise, variation), row in prs.items():
-        grouped[_body_part(exercise)][exercise].append((variation, row))
+        grouped[body_part(exercise)][exercise].append((variation, row))
 
     seen = list(grouped.keys())
     order = [p for p in BODY_PART_ORDER if p in seen] + sorted(
@@ -129,12 +129,12 @@ def format_prs_compact(db_path: Path) -> str:
     )
 
     lines = []
-    for body_part in order:
-        emoji = BODY_PART_EMOJI.get(body_part, "•")
-        for exercise in sorted(grouped[body_part]):
+    for part in order:
+        emoji = BODY_PART_EMOJI.get(part, "•")
+        for exercise in sorted(grouped[part]):
             _VAR_ORDER = {"default": 0, "flat": 1}
             variations = sorted(
-                grouped[body_part][exercise],
+                grouped[part][exercise],
                 key=lambda item: (_VAR_ORDER.get(item[0], 2), item[0]),
             )
             # Pick best row (highest weight, then earliest date)
@@ -161,5 +161,3 @@ def format_prs_compact(db_path: Path) -> str:
             lines.append(f"{emoji}  {exercise:<38}{var_str:<28}{perf:<22}{date_str}")
 
     return "\n".join(lines)
-
-
