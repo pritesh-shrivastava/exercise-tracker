@@ -10,6 +10,7 @@ import re
 _STRIP_RE = re.compile(r"[^a-z0-9+\s]")
 _SPACE_RE = re.compile(r"\s+")
 _WIDE_RE = re.compile(r"\bwide\b")
+_TRAILING_PAREN_RE = re.compile(r"\s*\([^)]*\)\s*$")
 
 _CANONICAL: dict[str, str] = {
     "shoulder press": "Dumbbell Shoulder Press",
@@ -60,6 +61,7 @@ def _clean(text: str) -> str:
 
 
 def normalize_exercise(exercise: str, raw_text: str = "") -> str:
+    exercise = _TRAILING_PAREN_RE.sub("", exercise).strip()
     ex = _clean(exercise)
     raw = _clean(raw_text)
     combined = f"{ex} {raw}".strip()
@@ -97,3 +99,7 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
             return "Dumbbell " + _CANONICAL[core]
 
     return _SPACE_RE.sub(" ", exercise).strip().title()
+
+
+def normalize(exercise: str, raw_text: str = "") -> str:
+    return normalize_exercise(exercise, raw_text)
