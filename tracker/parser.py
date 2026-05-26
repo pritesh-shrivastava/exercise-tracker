@@ -32,6 +32,7 @@ CONTINUATION_RE = re.compile(
 WEIGHT_FIRST_RE = re.compile(
     r"(?P<exercise>.+?)\s+"
     r"(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?\s+"
+    r"(?:[-–—]\s*)?"
     r"(?P<sets>\d+)\s*(?:sets?)?\s*x\s*(?P<reps>\d+)\s*(?:reps?)?",
     re.IGNORECASE,
 )
