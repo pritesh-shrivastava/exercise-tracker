@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from tracker.parser import WorkoutRecord, classify_lines
+from tracker.parser import WorkoutRecord, classify_lines, format_details, validate_record
 from tracker.reports import body_part
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -63,6 +63,34 @@ def ensure_db(db_path: Path) -> None:
                     conn.execute(update_sql)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(workout_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_type ON workouts(workout_type)")
+        conn.execute("""
+        CREATE TRIGGER IF NOT EXISTS workouts_validate_insert
+        BEFORE INSERT ON workouts
+        BEGIN
+          SELECT CASE
+            WHEN NEW.variation NOT IN ('default', 'flat', 'incline', 'decline', 'short grip', 'wide grip')
+            THEN RAISE(ABORT, 'invalid variation')
+          END;
+          SELECT CASE
+            WHEN NEW.per_hand = 1 AND NEW.equipment <> 'dumbbells'
+            THEN RAISE(ABORT, 'per_hand requires dumbbells')
+          END;
+        END
+        """)
+        conn.execute("""
+        CREATE TRIGGER IF NOT EXISTS workouts_validate_update
+        BEFORE UPDATE ON workouts
+        BEGIN
+          SELECT CASE
+            WHEN NEW.variation NOT IN ('default', 'flat', 'incline', 'decline', 'short grip', 'wide grip')
+            THEN RAISE(ABORT, 'invalid variation')
+          END;
+          SELECT CASE
+            WHEN NEW.per_hand = 1 AND NEW.equipment <> 'dumbbells'
+            THEN RAISE(ABORT, 'per_hand requires dumbbells')
+          END;
+        END
+        """)
         conn.commit()
 
 
@@ -75,9 +103,11 @@ def insert_lines(db_path: Path, text: str, source: str = "manual") -> int:
     for rec in classify_lines(text):
         if not isinstance(rec, WorkoutRecord):
             continue
+        validate_record(rec)
+        details = format_details(rec.sets, rec.reps, rec.weight_kg)
         rows.append((
             now, workout_date, rec.workout_type, rec.exercise, rec.variation,
-            rec.details, rec.raw_text, source,
+            details, rec.raw_text, source,
             rec.sets, rec.reps, rec.weight_kg, rec.equipment, rec.per_hand,
         ))
 
