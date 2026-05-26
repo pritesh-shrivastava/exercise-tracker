@@ -7,7 +7,7 @@ The database is the source of truth. Hermes Agent is the sole interface — via 
 
 ## Data model
 
-### Schema (14 columns)
+### Schema (13 columns)
 
 Each workout row stores:
 
@@ -56,7 +56,7 @@ Handles these format variants (in priority order):
 2. **Weight-first**: `Exercise - 20 kg 3 sets x 15 reps`
 3. **Multi-set comma split**: `Exercise - 2 x 15 with 5 + 5 kg, 1 set of 15 rep with 7.5 kg`
 4. **Standard**: `exercise N x M [@ weight]`
-5. **Multi-set-of**: `N set(s) of M rep(s) [@ weight]`
+5. **Multi-set-of inside comma parsing**: `, N set(s) of M rep(s) [@ weight]`
 
 Typo recovery: `woth` → `with`, `dumbell` → `dumbbell`, `biceo` → `bicep`, `calf rause` → `calf raise`, etc.
 
@@ -67,7 +67,7 @@ Typo recovery: `woth` → `with`, `dumbell` → `dumbbell`, `biceo` → `bicep`,
 - Bench press with "press" in text → `Barbell Bench Press` (if "barbell" in text) or `Dumbbell Bench Press` (default)
 - Lat pull-down → always `Lat Pull Down`; grip goes into variation column via `detect_variations()`
 - Rear delt → `Rear Delt Fly`
-- Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Seated Horizontal Row`, `abs crunch` → `Seated Abs Crunch Machine`
+- Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Seated Row machine`, `abs crunch` → `Seated Abs Crunch Machine`
 - Title-case fallback for unknown exercises
 
 ### Equipment inference
@@ -76,7 +76,7 @@ Keyword-based on exercise name + raw text (combined):
 
 `dumbbells` | `barbell` | `cable` | `machine` | `bodyweight` | `kettlebell` | `smith machine` | `band` | `other`
 
-Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Horizontal Row, 45 Degree Leg Press, Horizontal Leg Press, etc.).
+Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Row machine, 45 Degree Leg Press, Horizontal Leg Press, etc.).
 
 ### Logging behaviour
 
@@ -97,7 +97,7 @@ Examples: `20 min zone 2 cardio`, `5 km run 28 min`, `cycling 45 min`
 - `default` variations stay hidden in display output
 - `flat`, `incline`, and `decline` are shown for bench press
 - Summary is grouped by body part first, then exercise
-- PR scoring: highest weight → highest reps → highest sets → latest date
+- PR scoring: highest weight → highest reps → highest sets → earliest date
 - PR output is compact: one line per exercise, variations shown inline in brackets
 
 Summary responses are tiered — Hermes picks the right one based on natural language:
@@ -146,5 +146,5 @@ Hermes memory stores facts that persist across sessions but are not derivable fr
 - Backfill older rows when schema rules change: `uv run python scripts/backfill_structured.py`
 - Keep the repo copyable as-is, with SQLite and env vars being enough to restore it
 - Skills and memory belong to the agent layer — they are not part of the database backup, but should be committed to the repo so they migrate with it
-- After changing parser/normalizer, run `uv run pytest` — 98 tests should pass
+- After changing parser/normalizer, run `uv run pytest` — 99 tests should pass
 - SQLite auto-ALTER in `ensure_db()` handles schema migration on startup; no manual DDL needed
