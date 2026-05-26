@@ -17,21 +17,21 @@ from tracker.normalizer import normalize_exercise
 STRENGTH_RE = re.compile(
     r"(?P<exercise>.+?)\s+"
     r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)"
-    r"(?:\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?",
+    r"(?:\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)*)\s*(?P<unit>kg|kgs|lb|lbs)?)?",
     re.IGNORECASE,
 )
 
 # Matches continuation lines: bare "2 x 15 with 20 kg" or "1 x 15 - 43 kg" (no exercise name)
 CONTINUATION_RE = re.compile(
     r"^\s*(?P<sets>\d+)\s*x\s*(?P<reps>\d+)"
-    r"(?:\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?)?\s*$",
+    r"(?:\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)*)\s*(?P<unit>kg|kgs|lb|lbs)?)?\s*$",
     re.IGNORECASE,
 )
 
 # Matches: "exercise - weight kg N sets x M reps"
 WEIGHT_FIRST_RE = re.compile(
     r"(?P<exercise>.+?)\s+"
-    r"(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?\s+"
+    r"(?P<weight>\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)*)\s*(?P<unit>kg|kgs|lb|lbs)?\s+"
     r"(?:[-–—]\s*)?"
     r"(?P<sets>\d+)\s*(?:sets?)?\s*x\s*(?P<reps>\d+)\s*(?:reps?)?",
     re.IGNORECASE,
@@ -40,7 +40,7 @@ WEIGHT_FIRST_RE = re.compile(
 # Matches multi-set within a line: "N x M with W, M set(s) of R rep(s) with W"
 # Splits into separate parsed units on commas
 MULTI_SET_SPLIT_RE = re.compile(
-    r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
+    r"(?P<sets>\d+)\s*x\s*(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)*)\s*(?P<unit>kg|kgs|lb|lbs)?",
     re.IGNORECASE,
 )
 
@@ -54,14 +54,14 @@ MULTI_LINE_PATTERN = re.compile(
 
 # Matches "N set(s) of M rep(s) [@/with weight]" (no "x" separator)
 MULTI_SET_OF_RE = re.compile(
-    r"(?P<sets>\d+)\s+sets?\s+of\s+(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
+    r"(?P<sets>\d+)\s+sets?\s+of\s+(?P<reps>\d+)\s*(?:reps?)?\s*(?:@|with|woth|-)\s*(?P<weight>\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)*)\s*(?P<unit>kg|kgs|lb|lbs)?",
     re.IGNORECASE,
 )
 
 # Also matches plain "N M" formats like "1 set of 15 rep with 7.5 kg"
 # where the number after "set(s) of" is the reps
 MULTI_SET_COMMA_RE = re.compile(
-    r",\s*(?:\d+\s+(?:sets?|set)\s+of\s+)?(?P<reps>\d+)\s*(?:reps?)?\s+(?:@|with|woth|-)\s+(?P<weight>\d+(?:\.\d+)?)\s*(?P<unit>kg|kgs|lb|lbs)?",
+    r",\s*(?:\d+\s+(?:sets?|set)\s+of\s+)?(?P<reps>\d+)\s*(?:reps?)?\s+(?:@|with|woth|-)\s+(?P<weight>\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)*)\s*(?P<unit>kg|kgs|lb|lbs)?",
     re.IGNORECASE,
 )
 
@@ -112,7 +112,7 @@ def _is_machine_exercise(exercise: str, raw_text: str) -> bool:
 def infer_equipment(exercise: str, raw_text: str) -> str:
     """Infer equipment type from exercise name and raw text."""
     combined = f"{exercise} {raw_text}".lower()
-    if "bodyweight" in combined or combined.strip().startswith("bodyweight"):
+    if re.search(r"\bbody\s*wt\b|\bbodyweight\b", combined):
         return "bodyweight"
     if "barbell" in combined:
         return "barbell"
@@ -145,6 +145,84 @@ class WorkoutRecord:
     weight_kg: float | None = None
     equipment: str = ""
     per_hand: bool = False
+
+
+VALID_VARIATIONS = frozenset({"default", "flat", "incline", "decline", "short grip", "wide grip"})
+EQUIPMENT_VALUES = frozenset({
+    "dumbbells", "barbell", "machine", "cable", "bodyweight",
+    "kettlebell", "smith machine", "band", "other", "",
+})
+_SINGLE_IMPLEMENT_EXERCISES = frozenset({
+    "goblet squat", "kettlebell swing",
+})
+
+
+@dataclass
+class ParseContext:
+    exercise: str = ""
+    raw_text: str = ""
+    equipment: str = ""
+
+
+def parse_weight_kg(weight_text: str | None, unit: str | None, *,
+                    exercise: str, equipment: str, raw_text: str) -> tuple[float | None, bool]:
+    """Parse weight text into (weight_kg, per_hand)."""
+    if not weight_text:
+        return None, False
+    text = weight_text.lower().strip()
+    nums = [float(p.strip()) for p in re.split(r"\s*\+\s*", text) if p.strip()]
+    if not nums:
+        return None, False
+    total = sum(nums)
+    combined_lower = f"{exercise} {raw_text}".lower()
+    explicit_per_hand = bool(re.search(r"\b(each|ea\.?|per hand|each hand)\b", combined_lower))
+    single_implement = any(name in combined_lower for name in _SINGLE_IMPLEMENT_EXERCISES)
+    if len(nums) >= 2:
+        return total, True
+    if equipment == "dumbbells" and explicit_per_hand and not single_implement:
+        return total * 2, True
+    if equipment == "dumbbells" and not single_implement:
+        return total, True
+    return total, False
+
+
+def sanitize_variation(variation: str) -> str:
+    v = (variation or "default").strip().lower()
+    if v in EQUIPMENT_VALUES:
+        return "default"
+    if v not in VALID_VARIATIONS:
+        raise ValueError(f"Invalid variation: {variation!r}")
+    return v
+
+
+def format_details(sets: int, reps: int, weight_kg: float | None) -> str:
+    details = f"{sets}x{reps}"
+    if weight_kg is None:
+        return details
+    weight = int(weight_kg) if weight_kg == int(weight_kg) else weight_kg
+    return f"{details} @ {weight}kg"
+
+
+def validate_record(rec: WorkoutRecord) -> None:
+    if rec.workout_type == "strength":
+        if rec.sets <= 0 or rec.reps <= 0:
+            raise ValueError(f"Invalid strength sets/reps: {rec}")
+        if rec.weight_kg is not None and rec.weight_kg < 0:
+            raise ValueError(f"Negative weight: {rec}")
+        if rec.equipment not in EQUIPMENT_VALUES:
+            raise ValueError(f"Invalid equipment: {rec.equipment!r}")
+        if rec.variation in EQUIPMENT_VALUES:
+            raise ValueError(f"Invalid variation; Equipment leaked into variation: {rec}")
+        if rec.variation not in VALID_VARIATIONS:
+            raise ValueError(f"Invalid variation: {rec.variation!r}")
+        if rec.per_hand and rec.equipment != "dumbbells":
+            raise ValueError(f"per_hand set for non-dumbbell row: {rec}")
+        if re.search(r"\bbody\s*wt\b|\bbodyweight\b", rec.raw_text, re.I):
+            if rec.equipment != "bodyweight":
+                raise ValueError(f"Bodyweight text did not infer bodyweight: {rec}")
+        expected = format_details(rec.sets, rec.reps, rec.weight_kg)
+        if rec.details != expected:
+            raise ValueError(f"Stale details: {rec.details!r} != {expected!r}")
 
 
 def _strip_trailing_junk(name: str) -> str:
@@ -198,40 +276,21 @@ def _clean_exercise_name(raw_name: str) -> str:
 
 
 def _build_record(exercise: str, text: str, sets_str: str, reps_str: str,
-                  weight_str: str | None, unit_str: str | None) -> list[WorkoutRecord]:
+                  weight_str: str | None, unit_str: str | None,
+                  *, inference_text: str | None = None) -> list[WorkoutRecord]:
     """Build one or more records, splitting if detect_variations returns multiple."""
     exercise = _clean_exercise_name(exercise)
-    normalized = normalize_exercise(exercise, text)
-    variations = detect_variations(normalized, text)
+    inf_text = inference_text or text
+    normalized = normalize_exercise(exercise, inf_text)
+    variations = detect_variations(normalized, inf_text)
     unit_s = (unit_str or "").lower()
-
     sets = int(sets_str)
     reps = int(reps_str)
-    equipment = infer_equipment(normalized, text)
-    per_hand = False
-    weight_kg: float | None = None
-    details = f"{sets}x{reps}"
-
-    if weight_str:
-        # Handle "X + Y" notation — explicitly per-hand
-        parts = [p.strip() for p in weight_str.split("+") if p.strip()]
-        try:
-            per_hand_weight = sum(float(p) for p in parts)
-        except ValueError:
-            per_hand_weight = 0.0
-
-        if len(parts) >= 2 or equipment == "dumbbells":
-            # "5 + 5 kg" → per_hand=5, total=10
-            # "10 kg dumbbell" (single number) → assume per_hand convention
-            per_hand = equipment == "dumbbells"
-            weight_kg = per_hand_weight * (2 if per_hand else 1)
-        else:
-            weight_kg = per_hand_weight
-
-    if weight_kg is not None:
-        # Format: show int if whole number, float otherwise
-        wt_str = str(int(weight_kg)) if weight_kg == int(weight_kg) else str(weight_kg)
-        details += f" @ {wt_str}{unit_s}"
+    equipment = infer_equipment(normalized, inf_text)
+    weight_kg, per_hand = parse_weight_kg(
+        weight_str, unit_s, exercise=normalized, equipment=equipment, raw_text=text,
+    )
+    details = format_details(sets, reps, weight_kg)
 
     records = []
     for variation in variations:
@@ -242,13 +301,13 @@ def _build_record(exercise: str, text: str, sets_str: str, reps_str: str,
     return records
 
 
-def classify_line(line: str, *, previous_exercise: str = "") -> list[WorkoutRecord]:
+def classify_line(line: str, *, previous: ParseContext | None = None,
+                  previous_exercise: str = "") -> list[WorkoutRecord]:
     """Parse a single line into one or more WorkoutRecord instances.
 
     Args:
         line: The raw text line to parse.
-        previous_exercise: The exercise name from the previous line, used for
-                           continuation lines (bare sets/reps).
+        previous: The previous strength line context, used for continuation lines.
 
     Returns:
         A list of WorkoutRecord instances.
@@ -257,14 +316,18 @@ def classify_line(line: str, *, previous_exercise: str = "") -> list[WorkoutReco
     if not text:
         # Skip empty lines
         return []
+    previous = previous or ParseContext(exercise=previous_exercise)
+    parent_exercise = previous.exercise
 
     # --- Continuation line: bare "N x M [@ weight]" with no exercise name ---
     cm = CONTINUATION_RE.match(text)
-    if cm and previous_exercise:
+    if cm and parent_exercise:
+        inference_text = f"{previous.exercise} {previous.raw_text} {text}"
         return _build_record(
-            previous_exercise, text,
+            previous.exercise, text,
             cm.group("sets"), cm.group("reps"),
             cm.group("weight"), cm.group("unit"),
+            inference_text=inference_text,
         )
 
     # --- Weight-first format: "Exercise - 20 kg 3 sets x 15 reps" ---
@@ -343,14 +406,13 @@ def classify_lines(text: str) -> list[WorkoutRecord]:
     inherit the exercise name from the previous strength line.
     """
     records = []
-    last_exercise = ""
+    previous = ParseContext()
     for line in text.splitlines():
-        recs = classify_line(line, previous_exercise=last_exercise)
+        recs = classify_line(line, previous=previous)
         records.extend(recs)
-        # Track last exercise name for continuation lines
         for r in recs:
             if r.workout_type == "strength" and r.exercise:
-                last_exercise = r.exercise
+                previous = ParseContext(r.exercise, r.raw_text, r.equipment)
     return records
 
 
