@@ -2,7 +2,9 @@
 """Export workouts table to CSV. Fallback when sqlite3 CLI isn't available."""
 import sqlite3, csv, sys, os
 
-repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# script is at skills/backup-db/scripts/csv_export.py, repo root is 3 dirs up
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
 db_path = os.path.join(repo, 'data', 'workouts.sqlite')
 out_path = sys.argv[1] if len(sys.argv) > 1 else '/tmp/workouts.csv'
 
