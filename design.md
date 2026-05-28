@@ -120,7 +120,7 @@ Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this
 Four skills, all in `skills/`:
 - `log-workout` — parse and insert lines, handle incline/decline split, confirm count
 - `workout-summary` — pick the right summary tier and format for Telegram
-- `backup-db` — dump SQLite, upload to Azure Blob, prune to last 3 copies
+- `backup-db` — dump SQLite + CSV, upload to Azure Blob (retention handled server-side by a 30-day lifecycle policy, not by the skill)
 - `query-db` — browse raw table rows, excluding id/raw_text/details
 
 The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
@@ -129,7 +129,7 @@ The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separat
 
 Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cron/jobs.json`):
 1. **PR summary** (weekly): runs `python summary.py --prs` and updates Hermes memory with latest PRs
-2. **DB backup** (nightly at 01:00 IST): runs `backup-db` skill to upload to Azure Blob and prune to last 3 copies. Install command lives in `skills/backup-db/SKILL.md`.
+2. **DB backup** (nightly at 03:00 IST): runs `backup-db` skill to upload SQLite + CSV to Azure Blob. **Write-only** — old blobs are deleted by an Azure lifecycle policy (30-day retention) rather than by the skill itself, after a 2026-05-28 incident where Hermes-executed prune logic deleted the wrong container. Install command and policy JSON live in `skills/backup-db/SKILL.md`.
 
 ## Hermes memory
 

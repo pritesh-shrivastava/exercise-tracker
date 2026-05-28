@@ -148,7 +148,7 @@ The `skills/` folder teaches Hermes the procedures for this tracker. Each skill 
 skills/
   log-workout/      — how to log workout lines from natural language
   workout-summary/  — tiered summary: recent entries, weekly volume, PRs
-  backup-db/        — dump SQLite to Azure Blob and prune old copies
+  backup-db/        — dump SQLite + CSV to Azure Blob (write-only; 30-day retention via Azure lifecycle policy)
   query-db/         — show raw table rows, excluding id/raw_text/details
 ```
 
