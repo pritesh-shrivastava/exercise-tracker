@@ -131,36 +131,50 @@ def format_prs_compact(db_path: Path) -> str:
         p for p in seen if p not in BODY_PART_ORDER
     )
 
+    _VAR_ORDER = {"default": 0, "flat": 1}
     lines = []
     for part in order:
         emoji = BODY_PART_EMOJI.get(part, "•")
         for exercise in sorted(grouped[part]):
-            _VAR_ORDER = {"default": 0, "flat": 1}
             variations = sorted(
                 grouped[part][exercise],
                 key=lambda item: (_VAR_ORDER.get(item[0], 2), item[0]),
             )
-            # Pick best row (highest weight, then earliest date)
-            best_row = max(variations, key=lambda item: (
-                item[1].weight_kg or -1, _neg_date(item[1].workout_date)
-            ))[1]
-            non_default = [v for v, _ in variations if v not in ("default", "")]
-            var_str = f"  [{', '.join(non_default)}]" if non_default else ""
+            # Variations with different PR weights get their own line; variations
+            # that share the same weight stay clubbed on one line. (A bare
+            # "Lat Pull Down" at 35kg and "[short grip, wide grip]" at 31kg are
+            # distinct PRs and should not collapse into one.)
+            by_weight: dict[float | None, list[tuple[str, PRRow]]] = defaultdict(list)
+            for var, row in variations:
+                by_weight[row.weight_kg].append((var, row))
+            # Heaviest first; bodyweight (None) last.
+            for weight in sorted(
+                by_weight,
+                key=lambda x: (x is not None, x if x is not None else 0.0),
+                reverse=True,
+            ):
+                group = by_weight[weight]
+                # Representative within the weight group: best reps, then sets, then earliest.
+                row = max(group, key=lambda item: (
+                    item[1].reps, item[1].sets, _neg_date(item[1].workout_date)
+                ))[1]
+                non_default = [v for v, _ in group if v not in ("default", "")]
+                var_str = f"  [{', '.join(non_default)}]" if non_default else ""
 
-            w = best_row.weight_kg
-            if w is not None:
-                if best_row.per_hand:
-                    half = w / 2
-                    per_hand_kg = int(half) if half == int(half) else half
-                    total_str = str(int(w)) if w == int(w) else str(w)
-                    weight_str = f"{total_str}kg ({per_hand_kg}ea.)"
+                w = row.weight_kg
+                if w is not None:
+                    if row.per_hand:
+                        half = w / 2
+                        per_hand_kg = int(half) if half == int(half) else half
+                        total_str = str(int(w)) if w == int(w) else str(w)
+                        weight_str = f"{total_str}kg ({per_hand_kg}ea.)"
+                    else:
+                        weight_str = f"{int(w) if w == int(w) else w}kg"
+                    perf = f"{row.sets}×{row.reps} @ {weight_str}"
                 else:
-                    weight_str = f"{int(w) if w == int(w) else w}kg"
-                perf = f"{best_row.sets}×{best_row.reps} @ {weight_str}"
-            else:
-                perf = f"{best_row.sets}×{best_row.reps}"
+                    perf = f"{row.sets}×{row.reps}"
 
-            date_str = _fmt_date(best_row.workout_date)
-            lines.append(f"{emoji}  {exercise:<38}{var_str:<28}{perf:<22}{date_str}")
+                date_str = _fmt_date(row.workout_date)
+                lines.append(f"{emoji}  {exercise:<38}{var_str:<28}{perf:<22}{date_str}")
 
     return "\n".join(lines)

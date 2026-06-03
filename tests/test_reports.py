@@ -147,3 +147,26 @@ def test_format_prs_picks_highest_weight_from_structured(tmp_path: Path):
     result = format_prs(db)
     assert "80" in result
     assert "70" not in result, "Lower weight should not appear in PRs"
+
+
+def test_format_prs_splits_variations_with_different_weight(tmp_path: Path):
+    """Variations of one exercise with different PR weights get separate lines."""
+    db = tmp_path / "workouts.sqlite"
+    insert_lines(db, "Lat pull down 3x15 @ 35kg")  # default
+    insert_lines(db, "Lat pull down 3x15 @ 31kg with short grip")
+    result = format_prs(db)
+    lat_lines = [ln for ln in result.splitlines() if "Lat Pull Down" in ln]
+    assert len(lat_lines) == 2, f"expected default + short grip as separate lines, got: {lat_lines}"
+    assert any("35kg" in ln and "short grip" not in ln for ln in lat_lines)
+    assert any("31kg" in ln and "short grip" in ln for ln in lat_lines)
+
+
+def test_format_prs_clubs_same_weight_variations(tmp_path: Path):
+    """Variations sharing the same PR weight stay clubbed on one line."""
+    db = tmp_path / "workouts.sqlite"
+    insert_lines(db, "Lat pull down 3x15 @ 31kg with short grip")
+    insert_lines(db, "Lat pull down 3x15 @ 31kg with wide grip")
+    result = format_prs(db)
+    lat_lines = [ln for ln in result.splitlines() if "Lat Pull Down" in ln]
+    assert len(lat_lines) == 1, f"same-weight variations should club into one line, got: {lat_lines}"
+    assert "short grip" in lat_lines[0] and "wide grip" in lat_lines[0]

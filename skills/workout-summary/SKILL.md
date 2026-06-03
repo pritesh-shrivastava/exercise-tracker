@@ -41,6 +41,7 @@ This applies to ALL summary commands: `python summary.py`, `python summary.py --
 - `pr_summary.py` ranks by weight first, then reps, then sets. High-rep low-weight entries may not surface as PRs even if they represent progress.
 - **PR date shows earliest achievement, not most recent.** When weight and reps are tied across multiple sessions, the PR date is the FIRST time you hit that weight/reps combo — not the latest. If a PR date looks suspiciously recent when you know you've hit that weight before, the tiebreaker may be wrong; check `tracker/reports.py` `_best_sets()` for the `_neg_date` logic.
 - `default` variations are hidden in summary output; `flat`, `incline`, `decline` are shown explicitly for bench press.
+- **Variations split by weight.** `format_prs_compact()` shows one PR line per distinct PR *weight* within an exercise: variations with different weights (e.g. Lat Pull Down `default` @ 35kg vs `[short grip, wide grip]` @ 31kg) appear on **separate lines**; variations that share the same PR weight stay **clubbed** in one `[a, b]` bracket. So the same exercise can legitimately occupy multiple lines — that's intended, not a duplicate.
 
 ## Schedule
 
@@ -69,6 +70,10 @@ For manual ad-hoc runs, just use `python summary.py --prs` directly. The memory 
 ## Pitfalls
 
 - **Emoji-heavy output may not render on Telegram.** `summary.py --prs` uses emoji body-part labels (🩻🧱🧢💪🦵⚡). If the user says they can't see the output or asks for it again, DO NOT resend the raw emoji output. Instead, reformat without emojis using plain section headers (`### Chest`, `### Back`, etc.) inside a code block. The user prefers to see the data, not the emoji. If the raw output rendered fine on your end but the user still says \"Cant see\", trust them — strip and reformat.
+
+- **When showing PRs, always deliver raw command output verbatim in code blocks without any summary, conversion to tables, or commentary unless explicitly requested by the user.**
+
+- **For PRs on a specific date (e.g., today), query the database directly for exact filtering and present results in raw or JSON format as needed.**
 
 ## Verification
 
