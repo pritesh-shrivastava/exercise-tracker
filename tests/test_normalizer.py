@@ -87,6 +87,8 @@ def test_rear_delt_in_raw():
     ("seated row", "Seated Row machine"),
     ("horizontal rows", "Seated Row machine"),
     ("horizontal leg press", "Horizontal Leg Press"),
+    ("vertical chest press", "Vertical Chest Press Machine"),
+    ("vertical chest press machine", "Vertical Chest Press Machine"),
     ("chest press vertical", "Chest Press Vertical"),
     ("assisted pullup", "Assisted Pull Up"),
     ("assisted pull up", "Assisted Pull Up"),

@@ -37,7 +37,10 @@ class PRRow:
 
 def body_part(exercise: str) -> str:
     name = exercise.lower()
-    chest = ["bench press", "pec fly", "chest press", "chest fly", "push up", "pushup"]
+    chest = [
+        "bench press", "incline press", "pec fly", "chest press", "chest fly",
+        "push up", "pushup",
+    ]
     back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up", "back extension"]
     back_exclude = ["upright row"]
     shoulders = [
@@ -46,8 +49,8 @@ def body_part(exercise: str) -> str:
         "shrug", "shrugs",
     ]
     legs = ["leg press", "leg extension", "hamstring curl",
-            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise", "lunge", "lunges"]
-    arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl"]
+            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise", "lunge", "lunges", "glute kickback"]
+    arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl", "dip"]
     arms_exclude = ["hamstring curl", "calf curl", "back extension"]
     if any(t in name for t in chest):
         return "Chest"

@@ -38,6 +38,26 @@ def test_bench_decline():
     assert recs[0].variation == "decline"
 
 
+def test_barbell_incline_press_preserves_incline():
+    recs = classify_line("Barbell incline press - 3 x 12 - 0 kg")
+    assert len(recs) == 1
+    assert recs[0].exercise == "Barbell Incline Press"
+
+
+def test_barbell_zero_weight_is_untracked():
+    recs = classify_line("Barbell incline press - 3 x 12 - 0 kg")
+    assert len(recs) == 1
+    assert recs[0].weight_kg is None
+    assert recs[0].details == "3x12"
+
+
+def test_barbell_empty_bar_weight_is_untracked():
+    recs = classify_line("Barbell bench press - 3 x 12 - empty bar")
+    assert len(recs) == 1
+    assert recs[0].weight_kg is None
+    assert recs[0].details == "3x12"
+
+
 def test_bench_incline_and_decline_splits():
     recs = classify_line("bench incline and decline 3x15 @ 15kg")
     assert len(recs) == 2

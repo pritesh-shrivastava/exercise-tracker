@@ -125,6 +125,28 @@ Four skills, all in `skills/`:
 
 The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
 
+### Telegram topic skill binding
+
+This tracker lives in the **"Health" DM topic** (`thread_id: 7218`) of Pritesh's Telegram DM with Mercury (the shared VPS Hermes agent). The interactive skills are auto-loaded on every new session in that topic via `platforms.telegram.extra.dm_topics` in `~/.hermes/config.yaml`:
+
+```yaml
+extra:
+  dm_topics:
+  - chat_id: 5727496535
+    topics:
+    - name: Health
+      thread_id: 7218                 # REQUIRED for an existing topic, else it re-creates a duplicate
+      skill:                          # a LIST is supported (auto_skill: str | list[str])
+      - log-workout
+      - query-db
+      - workout-summary
+```
+
+**Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `summary.py --filter`. Binding force-loads the skill bodies so logging and queries follow the documented procedure. Same fix as `career_assistant` (see `personal_hermes/docs/hermes-skill-following.md`).
+
+- `backup-db` is **deliberately not bound** — it's a nightly cron-only skill, and its write/prune logic should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
+- Binding fires only on **new sessions** and only on **incoming messages**, so it doesn't conflict with the crons' own `--skill`. Verify after a gateway restart: `grep "DM topic loaded from config" ~/.hermes/logs/gateway.log` should show `5727496535:Health -> thread_id=7218`.
+
 ### Cron jobs
 
 Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cron/jobs.json`):

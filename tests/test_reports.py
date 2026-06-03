@@ -60,6 +60,9 @@ def test_infer_equipment(exercise, raw, expected):
 
 @pytest.mark.parametrize("exercise,expected", [
     ("Bench Press", "Chest"),
+    ("Barbell Incline Press", "Chest"),
+    ("Dumbbell Incline Press", "Chest"),
+    ("Machine Incline Press", "Chest"),
     ("Pec Fly", "Chest"),
     ("Lat Pull Down", "Back"),
     ("Seated Row", "Back"),
@@ -71,6 +74,8 @@ def test_infer_equipment(exercise, raw, expected):
     ("Calf Raise", "Legs"),
     ("Bicep Curl", "Arms"),
     ("Tricep Pushdown", "Arms"),
+    ("Assisted Dips", "Arms"),
+    ("Dips", "Arms"),
     ("Abs Crunch", "Core"),
     ("Plank", "Core"),
     ("Something Random", "Other"),

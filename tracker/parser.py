@@ -167,6 +167,8 @@ class ParseContext:
 def parse_weight_kg(weight_text: str | None, unit: str | None, *,
                     exercise: str, equipment: str, raw_text: str) -> tuple[float | None, bool]:
     """Parse weight text into (weight_kg, per_hand)."""
+    if equipment == "barbell" and re.search(r"\bempty\s+bar\b", raw_text, re.IGNORECASE):
+        return None, False
     if not weight_text:
         return None, False
     text = weight_text.lower().strip()
@@ -177,6 +179,8 @@ def parse_weight_kg(weight_text: str | None, unit: str | None, *,
     combined_lower = f"{exercise} {raw_text}".lower()
     explicit_per_hand = bool(re.search(r"\b(each|ea\.?|per hand|each hand)\b", combined_lower))
     single_implement = any(name in combined_lower for name in _SINGLE_IMPLEMENT_EXERCISES)
+    if equipment == "barbell" and total == 0:
+        return None, False
     if len(nums) >= 2:
         return total, True
     if equipment == "dumbbells" and explicit_per_hand and not single_implement:
@@ -264,7 +268,7 @@ def _clean_exercise_name(raw_name: str) -> str:
     name = _TRAILING_JUNK_RE.sub("", raw_name).strip()
     # Keep a leading angle word intact; only later occurrences are descriptors.
     first, sep, rest = name.partition(" ")
-    if sep:
+    if sep and first.lower() != "barbell":
         rest = _ANGLE_WORDS.sub("", rest)
         cleaned = f"{first} {rest}".strip()
     else:
