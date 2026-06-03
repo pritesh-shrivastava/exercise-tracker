@@ -4,6 +4,25 @@ description: Use when the user pastes workout lines, says what they trained, men
 version: 1.1.0
 ---
 
+## Working directory & ad-hoc reads (exercise-tracker)
+
+Interactive Telegram sessions in the Health topic have **no working directory in this repo**.
+Every command in these skills (`python summary.py`, `python log_workout.py`, the `python -c`
+DB queries) is written **relative to the repo root**, so **prefix each command with a `cd`
+into the repo** — otherwise a bare `python summary.py` runs from the home dir and fails with
+`can't open file '/home/azureuser/summary.py'`:
+
+```bash
+cd /home/azureuser/exercise-tracker && python summary.py --prs
+```
+
+Common ad-hoc requests (not the logging flow):
+- **"Show PRs" / "personal records"** → `cd /home/azureuser/exercise-tracker && python summary.py --prs`
+- **"Show recent" / "summary"** → `cd /home/azureuser/exercise-tracker && python summary.py`
+- **DB queries** (query-db skill) → run the `python -c` snippet with the same `cd` prefix.
+
+(Cron jobs set `--workdir` so they're already in the repo; this note is for chat replies.)
+
 ## When to use
 
 When the user sends:
