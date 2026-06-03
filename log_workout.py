@@ -20,6 +20,11 @@ def main() -> int:
     args = parser.parse_args()
 
     text = "\n".join(args.text) if args.text else sys.stdin.read()
+    # Robustness: LLM-generated shell sometimes passes escaped "\n" inside a
+    # double-quoted argument, which the shell does NOT expand to a real newline —
+    # collapsing a multi-line session into one line (observed 2026-06 with
+    # gpt-4.1-mini). Normalize literal escapes back to real newlines.
+    text = text.replace("\\r\\n", "\n").replace("\\n", "\n")
     count = insert_lines(Path(args.db), text, source="manual")
     print(f"Logged {count} workout line(s) into {args.db}")
     return 0
