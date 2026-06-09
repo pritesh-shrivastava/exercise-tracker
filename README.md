@@ -41,7 +41,6 @@ skills/                      — Hermes agent skill definitions (loaded on deman
   query-db/SKILL.md
 pyproject.toml               — uv project config with ruff, mypy, pytest
 design.md                    — data model, variation rules, logging behaviour
-memory_template.md           — seed file for Hermes memory on setup/migration
 ```
 
 ## Quick start
@@ -156,9 +155,8 @@ skills/
 
 Skills are auto-discovered by Hermes on startup. The agent picks the right skill based on what you ask, then runs the procedure in `SKILL.md`. You can also trigger any skill manually.
 
-Hermes memory stores facts that persist across sessions:
-- Your current PRs (bench, squat, deadlift)
-- Training preferences (Pull→Push→Legs rotation, kg, IST timezone)
+Hermes runtime memory lives outside this repo at `~/.hermes/memories/MEMORY.md`.
+The weekly PR cron updates its `## Personal Records` section automatically.
 
 ## Migration to another VPS
 
@@ -213,12 +211,6 @@ Hermes Agent handles Telegram — point it at this repo from your Hermes config.
 uv run python summary.py
 ```
 
-6. **Seed Hermes memory**
-
-```bash
-cp memory_template.md ~/.hermes/memories/MEMORY.md
-```
-
 ### Migration checklist
 
 - [ ] repo cloned
@@ -226,7 +218,6 @@ cp memory_template.md ~/.hermes/memories/MEMORY.md
 - [ ] `uv sync` runs clean
 - [ ] `uv run python summary.py` shows data
 - [ ] Hermes pointed at the repo folder
-- [ ] `memory_template.md` copied to `~/.hermes/memories/MEMORY.md`
 
 ## Maintenance
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Weekly PR summary: print to stdout AND update Hermes memory file.
+"""Weekly PR summary: print to stdout and update runtime Hermes memory.
 
 Designed to be run as a cron script. Prints the PR summary to stdout
-(which Hermes delivers to Telegram), and updates the MEMORY.md file
-with structured PR data so the agent has fast access.
+(which Hermes delivers to Telegram), and updates
+~/.hermes/memories/MEMORY.md with structured PR data so the agent has fast access.
 NOTE: Deployed copy at ~/.hermes/scripts/weekly_pr_summary.py
 (Hermes cron sandbox requires scripts there). That copy has
 BASE_DIR hardcoded - update both when DB path changes.
@@ -70,7 +70,7 @@ def format_for_memory(pr_text: str) -> str:
 
 
 def update_memory(pr_text: str) -> bool:
-    """Replace or append the ## Personal Records section in MEMORY.md."""
+    """Replace or append the ## Personal Records section in runtime memory."""
     block = format_for_memory(pr_text)
     if not block:
         return False

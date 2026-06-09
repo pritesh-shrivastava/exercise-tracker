@@ -155,7 +155,8 @@ Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cro
 
 ## Hermes memory
 
-Hermes memory stores facts that persist across sessions but are not derivable from the database:
+Hermes runtime memory lives outside this repo at `~/.hermes/memories/MEMORY.md`.
+It stores facts that persist across sessions but are not derivable from the database:
 
 - Current PRs — overwritten automatically after each weekly `python summary.py --prs` run
 - Training preferences: Pull→Push→Legs priority rotation, kg not lbs, IST timezone
@@ -167,6 +168,6 @@ Hermes memory stores facts that persist across sessions but are not derivable fr
 - Normalize exercise names in code, not by rewriting user input
 - Backfill older rows when schema rules change: `uv run python scripts/backfill_structured.py`
 - Keep the repo copyable as-is, with SQLite and env vars being enough to restore it
-- Skills and memory belong to the agent layer — they are not part of the database backup, but should be committed to the repo so they migrate with it
+- Skills belong in the repo. Runtime Hermes memory does not; it is agent state and is not part of the database backup.
 - After changing parser/normalizer, run `uv run pytest` — 99 tests should pass
 - SQLite auto-ALTER in `ensure_db()` handles schema migration on startup; no manual DDL needed

@@ -26,7 +26,6 @@ skills/           — Hermes agent SKILL.md definitions (log-workout, workout-su
 log_workout.py    — CLI entry point for logging
 summary.py        — CLI entry point for summaries and PRs
 query_db.py       — does not exist; use `sqlite3 data/workouts.sqlite` directly
-memory_template.md — seed for ~/.hermes/memories/MEMORY.md
 design.md         — data model, variation rules, logging behaviour
 ```
 
