@@ -9,12 +9,13 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable
 
-BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core", "Other"]
+BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Other"]
 BODY_PART_EMOJI = {
     "Chest": "🩻",
     "Back": "🧱",
     "Shoulders": "🧢",
-    "Arms": "💪",
+    "Biceps": "💪",
+    "Triceps": "🔻",
     "Legs": "🦵",
     "Core": "⚡",
     "Other": "📦",
@@ -50,8 +51,10 @@ def body_part(exercise: str) -> str:
     ]
     legs = ["leg press", "leg extension", "hamstring curl",
             "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise", "lunge", "lunges", "glute kickback"]
-    arms = ["bicep", "tricep", "curl on cable", "preacher curl", "pushdown", "extension", "curl", "dip"]
-    arms_exclude = ["hamstring curl", "calf curl", "back extension"]
+    biceps = ["bicep", "curl on cable", "preacher curl", "hammer curl", "reverse curl", "curl"]
+    biceps_exclude = ["hamstring curl", "calf curl"]
+    triceps = ["tricep", "pushdown", "dip", "dips", "overhead extension", "extension"]
+    triceps_exclude = ["back extension", "leg extension"]
     if any(t in name for t in chest):
         return "Chest"
     if any(t in name for t in back) and "rear delt" not in name and not any(t in name for t in back_exclude):
@@ -60,8 +63,10 @@ def body_part(exercise: str) -> str:
         return "Shoulders"
     if any(t in name for t in legs):
         return "Legs"
-    if any(t in name for t in arms) and not any(t in name for t in arms_exclude):
-        return "Arms"
+    if any(t in name for t in biceps) and not any(t in name for t in biceps_exclude):
+        return "Biceps"
+    if any(t in name for t in triceps) and not any(t in name for t in triceps_exclude):
+        return "Triceps"
     if any(t in name for t in ["crunch", "abs", "plank", "core", "leg raises", "leg raise", "situp", "situps"]):
         return "Core"
     return "Other"

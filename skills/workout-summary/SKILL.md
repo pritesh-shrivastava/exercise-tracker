@@ -26,7 +26,7 @@ Returns: total entries, date range, breakdown by type, then recent activity with
 ```
 python summary.py --prs
 ```
-Returns: best set per exercise + variation, grouped by body part (Chest, Back, Shoulders, Arms, Legs, Core, Other).
+Returns: best set per exercise + variation, grouped by body part (Chest, Back, Shoulders, Biceps, Triceps, Legs, Core, Other).
 
 ### Output delivery rule
 
@@ -69,7 +69,7 @@ For manual ad-hoc runs, just use `python summary.py --prs` directly. The memory 
 
 ## Pitfalls
 
-- **Emoji-heavy output may not render on Telegram.** `summary.py --prs` uses emoji body-part labels (🩻🧱🧢💪🦵⚡). If the user says they can't see the output or asks for it again, DO NOT resend the raw emoji output. Instead, reformat without emojis using plain section headers (`### Chest`, `### Back`, etc.) inside a code block. The user prefers to see the data, not the emoji. If the raw output rendered fine on your end but the user still says \"Cant see\", trust them — strip and reformat.
+- **Emoji-heavy output may not render on Telegram.** `summary.py --prs` uses emoji body-part labels (🩻🧱🧢💪🔻🦵⚡). If the user says they can't see the output or asks for it again, DO NOT resend the raw emoji output. Instead, reformat without emojis using plain section headers (`### Chest`, `### Back`, etc.) inside a code block. The user prefers to see the data, not the emoji. If the raw output rendered fine on your end but the user still says \"Cant see\", trust them — strip and reformat.
 
 - **When showing PRs, always deliver raw command output verbatim in code blocks without any summary, conversion to tables, or commentary unless explicitly requested by the user.**
 

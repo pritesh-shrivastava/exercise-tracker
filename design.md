@@ -109,9 +109,9 @@ Summary responses are tiered — Hermes picks the right one based on natural lan
 
 ### Body part classification
 
-Chest 💪 | Back 🧱 | Shoulders 🧢 | Arms 🏹 | Legs 🦵 | Core ⚡ | Other 📦
+Chest 🩻 | Back 🧱 | Shoulders 🧢 | Biceps 💪 | Triceps 🔻 | Legs 🦵 | Core ⚡ | Other 📦
 
-Keywords for each group are in `tracker/reports.py:body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Hamstring Curl` → Legs (not Arms).
+Keywords for each group are in `tracker/reports.py:body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Hamstring Curl` → Legs (not Biceps).
 
 ## Hermes skills architecture
 
@@ -120,7 +120,7 @@ Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this
 Four skills, all in `skills/`:
 - `log-workout` — parse and insert lines, handle incline/decline split, confirm count
 - `workout-summary` — pick the right summary tier and format for Telegram
-- `backup-db` — dump SQLite + CSV, upload to Azure Blob (retention handled server-side by a 30-day lifecycle policy, not by the skill)
+- `backup-db` — no-agent SQLite + CSV upload to Azure Blob (retention handled server-side by a 30-day lifecycle policy, not by the skill)
 - `query-db` — browse raw table rows, excluding id/raw_text/details
 
 The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
@@ -144,14 +144,14 @@ extra:
 
 **Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `summary.py --filter`. Binding force-loads the skill bodies so logging and queries follow the documented procedure. Same fix as `career_assistant` (see `personal_hermes/docs/hermes-skill-following.md`).
 
-- `backup-db` is **deliberately not bound** — it's a nightly cron-only skill, and its write/prune logic should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
+- `backup-db` is **deliberately not bound** — it's a nightly cron-only workflow, and backup/delete authority should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
 - Binding fires only on **new sessions** and only on **incoming messages**, so it doesn't conflict with the crons' own `--skill`. Verify after a gateway restart: `grep "DM topic loaded from config" ~/.hermes/logs/gateway.log` should show `5727496535:Health -> thread_id=7218`.
 
 ### Cron jobs
 
 Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cron/jobs.json`):
 1. **PR summary** (weekly): runs `python summary.py --prs` and updates Hermes memory with latest PRs
-2. **DB backup** (nightly at 03:00 IST): runs `backup-db` skill to upload SQLite + CSV to Azure Blob. **Write-only** — old blobs are deleted by an Azure lifecycle policy (30-day retention) rather than by the skill itself, after a 2026-05-28 incident where Hermes-executed prune logic deleted the wrong container. Install command and policy JSON live in `skills/backup-db/SKILL.md`.
+2. **DB backup** (nightly at 03:00 IST): runs a Hermes `no-agent` wrapper (`~/.hermes/scripts/exercise_tracker_backup_db.py`) that executes repo code in `scripts/backup_db.py` to upload SQLite + CSV to Azure Blob. **Write-only** — the cron uses a container SAS with create/write only (`cw`, no delete/list), and old blobs are deleted by Azure lifecycle policy after 30 days. Install command and policy JSON live in `skills/backup-db/SKILL.md` and `scripts/azure_lifecycle_policy_30d.json`.
 
 ## Hermes memory
 

@@ -66,7 +66,7 @@ Personal workout tracker. Hermes Agent is the Telegram interface. Python + SQLit
 
 - PR scoring uses `weight_kg`, `reps`, `sets` columns directly (not raw text parsing)
 - Display: `3x15 @ 30 (15 ea.)` for dumbbells
-- Compact PR format: body-part sections only (💪 Chest, 🧱 Back, etc.) — no header/summary lines
+- Compact PR format: body-part sections only (🩻 Chest, 🧱 Back, 🧢 Shoulders, 💪 Biceps, 🔻 Triceps, 🦵 Legs, ⚡ Core, 📦 Other) — no header/summary lines
 - Date freshness: 🟢 if ≤ 14 days ago, 🔴 if older
 
 ## User Preferences
@@ -93,7 +93,7 @@ If only 3 days: Pull, Push, Legs. Add Shoulders on day 4, Functional on day 5.
 - After changing parser/normalizer, run `uv run pytest` — tests should pass
 - To backfill structured columns after a schema change: `uv run python scripts/backfill_structured.py`
 - SQLite auto-ALTER in `ensure_db()` — `core.py` handles migration on startup
-- Nightly DB backup (01:00 IST) + weekly PR summary run via Hermes cron — install commands in respective SKILL.md files
+- Nightly DB backup (03:00 IST, no-agent repo script wrapper, SAS create/write only, 30-day Azure lifecycle retention) + weekly PR summary run via Hermes cron — install commands in respective SKILL.md files
 
 ## Key Decisions (Historical)
 

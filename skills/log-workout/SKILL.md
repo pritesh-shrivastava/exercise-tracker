@@ -66,7 +66,7 @@ After every log, run `python summary.py --prs` and verify:
 1. **Weights are present** for every exercise that had them in the buffer. A missing weight means the parser dropped it — fix immediately with SQL.
 2. **Exercise names are canonical — no plural drift.** No new variants (e.g. "Calf Raises" alongside existing "Calf Raise", "Barbell Curls" vs "Barbell Curl", "Hamstring Curls" vs "Hamstring Curl"). If the same exercise appears twice in PR output under slightly different names, merge with SQL: `UPDATE workouts SET exercise='<canonical singular>' WHERE exercise='<variant>'`.
 3. **No bogus exercise rows.** The parser sometimes creates rows where the exercise name is a raw fragment like "1 x 15 - 43 kg" instead of merging it as a continuation of the previous exercise. Fix by updating `exercise`, `sets`, `reps`, `weight_kg`, and `variation` for that row via SQL.
-4. **Body part classification is correct in PR output.** Check that every new exercise shows under the right emoji section (🩻 Chest, 🧱 Back, 🧢 Shoulders, 💪 Arms, 🦵 Legs, ⚡ Core, 📦 Other). If an exercise like "Barbell Incline Press" shows under 📦 Other, the keyword is missing from `tracker/reports.py:body_part()`. Fix by asking Codex to add the missing keyword. Common gaps: "incline press" for Chest, "dip" for Arms.
+4. **Body part classification is correct in PR output.** Check that every new exercise shows under the right emoji section (🩻 Chest, 🧱 Back, 🧢 Shoulders, 💪 Biceps, 🔻 Triceps, 🦵 Legs, ⚡ Core, 📦 Other). If an exercise like "Barbell Incline Press" shows under 📦 Other, the keyword is missing from `tracker/reports.py:body_part()`. Fix by asking Codex to add the missing keyword. Common gaps: "incline press" for Chest, "dip" for Triceps.
 5. If the `--prs` output looks clean, then confirm with the user.
 6. **When showing PRs to the user, the emoji-heavy raw output may not render in Telegram.** If the user says they can't see it ("Cant see"), reformat without emojis using plain section headers and `code` blocks. Don't repeat the raw emoji output — go straight to a clean format.
 
@@ -99,7 +99,7 @@ The parser may set per_hand=True for dumbbell exercises even when the weight is 
 If a new exercise shows under the wrong emoji section:
 - Add the missing keyword to the right list in `tracker/reports.py:body_part()`
 - Do NOT add exercise-specific overrides — add a general keyword
-- Known gaps already fixed: "incline press" → Chest, "dip" → Arms
+- Known gaps already fixed: "incline press" → Chest, "dip" → Triceps
 - Delegate to Codex with the exercise name and target body part
 
 ### 5. Merge spelling forks
@@ -119,7 +119,7 @@ The parser has known gaps. After every log, query the new rows (`WHERE id > <las
 
 ## Pitfalls
 
-- **New exercise addition**: When you encounter a previously unseen exercise (e.g., "Hanstring curl"), add a canonical entry in `tracker/normalizer.py` under the appropriate body‑part mapping. After logging, verify the PR output includes the new exercise under the correct emoji section (💪 for arms). If it appears under 📦 or with a wrong name, update the normalizer mapping accordingly.
+- **New exercise addition**: When you encounter a previously unseen exercise (e.g., "Hanstring curl"), add a canonical entry in `tracker/normalizer.py` under the appropriate body‑part mapping. After logging, verify the PR output includes the new exercise under the correct emoji section. If it appears under 📦 or with a wrong name, update the normalizer mapping accordingly.
 - **Virtual‑env warning**: The `uv run` commands may emit a warning about `VIRTUAL_ENV` mismatching the project environment. To silence this, invoke the command with the `--active` flag (`uv run --active python …`) or ensure the active virtual environment matches the project’s `.venv`. This prevents spurious warnings in future logs.
 
 

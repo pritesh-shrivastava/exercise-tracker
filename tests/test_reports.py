@@ -6,7 +6,8 @@ import pytest
 
 from tracker.core import ensure_db, insert_lines
 from tracker.parser import classify_lines, infer_equipment
-from tracker.reports import body_part, _fmt_date, format_prs_compact as format_prs
+from tracker.reports import _fmt_date, body_part
+from tracker.reports import format_prs_compact as format_prs
 
 # --- Parser structured output tests ---
 
@@ -72,10 +73,14 @@ def test_infer_equipment(exercise, raw, expected):
     ("Squat", "Legs"),
     ("Leg Press", "Legs"),
     ("Calf Raise", "Legs"),
-    ("Bicep Curl", "Arms"),
-    ("Tricep Pushdown", "Arms"),
-    ("Assisted Dips", "Arms"),
-    ("Dips", "Arms"),
+    ("Bicep Curl", "Biceps"),
+    ("Barbell Curl", "Biceps"),
+    ("Dumbbell Hammer Curl", "Biceps"),
+    ("Reverse Curl on Cable", "Biceps"),
+    ("Tricep Pushdown", "Triceps"),
+    ("Cable Overhead Tricep Extension", "Triceps"),
+    ("Assisted Dips", "Triceps"),
+    ("Dips", "Triceps"),
     ("Abs Crunch", "Core"),
     ("Plank", "Core"),
     ("Something Random", "Other"),
@@ -90,7 +95,7 @@ def test_body_part_rear_delt_not_back():
     assert body_part("Rear Delt Fly") == "Shoulders"
 
 
-def test_body_part_leg_curl_not_arms():
+def test_body_part_leg_curl_not_biceps():
     assert body_part("Hamstring Curl") == "Legs"
 
 

@@ -28,6 +28,9 @@ tests/
   test_reports.py            — PR report + equipment classification tests
 scripts/
   backfill_structured.py     — one-off backfill of structured columns (sets, reps, weight_kg, etc.)
+  backup_db.py               — no-agent Azure Blob backup implementation (SQLite + CSV upload only)
+  azure_lifecycle_policy_30d.json — Azure policy deleting workout backup blobs after 30 days
+  hermes_backup_db_wrapper.py — tiny Hermes ~/.hermes/scripts wrapper for backup_db.py
   normalize_existing.py      — one-off normalisation pass for old rows
   restore_db.sh              — restore database from Azure Blob backup
   weekly_pr_summary.py       — print PR summary to stdout and update Hermes memory (run by cron)
@@ -35,7 +38,6 @@ skills/                      — Hermes agent skill definitions (loaded on deman
   log-workout/SKILL.md
   workout-summary/SKILL.md
   backup-db/SKILL.md
-  backup-db/scripts/csv_export.py  — Python fallback for CSV export (when sqlite3 CLI is absent)
   query-db/SKILL.md
 pyproject.toml               — uv project config with ruff, mypy, pytest
 design.md                    — data model, variation rules, logging behaviour
@@ -148,7 +150,7 @@ The `skills/` folder teaches Hermes the procedures for this tracker. Each skill 
 skills/
   log-workout/      — how to log workout lines from natural language
   workout-summary/  — tiered summary: recent entries, weekly volume, PRs
-  backup-db/        — dump SQLite + CSV to Azure Blob (write-only; 30-day retention via Azure lifecycle policy)
+  backup-db/        — no-agent SQLite + CSV upload to Azure Blob; 30-day retention via Azure lifecycle policy
   query-db/         — show raw table rows, excluding id/raw_text/details
 ```
 
