@@ -21,7 +21,7 @@ MEMORY_FILE = Path.home() / ".hermes" / "memories" / "MEMORY.md"
 
 # We import after path setup so it works without uv run
 sys.path.insert(0, str(BASE_DIR))
-from tracker.reports import format_prs_compact  # noqa: E402
+from tracker.reports import format_prs_compact, format_stale_pr_increment_candidates  # noqa: E402
 
 
 def format_for_memory(pr_text: str) -> str:
@@ -33,7 +33,6 @@ def format_for_memory(pr_text: str) -> str:
     block = "## Personal Records\n\n"
     block += f"PR snapshot: {Path.home().stem}\n\n"
 
-    current_body_part = None
     for line in lines:
         # Lines start with emoji + space + exercise name
         # e.g. "🩻  Chest Press Vertical   3×10 @ 15kg      - 04 Dec 2025"
@@ -41,7 +40,6 @@ def format_for_memory(pr_text: str) -> str:
         if not emoji_match:
             continue
 
-        emoji = emoji_match.group(1)
         rest = emoji_match.group(2).strip()
 
         # Rest is: "Exercise  [variations]  sets×reps @ weight  date"
@@ -96,7 +94,13 @@ def main() -> int:
         print(f"No database found at {DEFAULT_DB}")
         return 1
 
+    stale_text = format_stale_pr_increment_candidates(DEFAULT_DB)
     pr_text = format_prs_compact(DEFAULT_DB)
+    if stale_text:
+        print(stale_text)
+        print()
+        print("---")
+        print()
     print(pr_text)
 
     # Also update memory for fast agent access

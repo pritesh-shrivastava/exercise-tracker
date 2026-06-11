@@ -120,6 +120,66 @@ def _fmt_date(d: str) -> str:
         return d
 
 
+def _fmt_performance(row: PRRow) -> str:
+    if row.weight_kg is not None:
+        w = row.weight_kg
+        if row.per_hand:
+            half = w / 2
+            per_hand_kg = int(half) if half == int(half) else half
+            total_str = str(int(w)) if w == int(w) else str(w)
+            weight_str = f"{total_str}kg ({per_hand_kg}ea.)"
+        else:
+            weight_str = f"{int(w) if w == int(w) else w}kg"
+        return f"{row.sets}×{row.reps} @ {weight_str}"
+    return f"{row.sets}×{row.reps}"
+
+
+def format_stale_pr_increment_candidates(
+    db_path: Path,
+    as_of: date | None = None,
+    stale_days: int = 30,
+    min_reps: int = 15,
+) -> str:
+    """Weighted PRs old enough and high-rep enough to consider increasing weight."""
+    rows = _load_rows(db_path)
+    if not rows:
+        return ""
+
+    today = as_of or date.today()
+    candidates: list[PRRow] = []
+    for row in _best_sets(rows).values():
+        if row.weight_kg is None or row.reps < min_reps:
+            continue
+        try:
+            pr_date = datetime.strptime(row.workout_date, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if (today - pr_date).days > stale_days:
+            candidates.append(row)
+
+    if not candidates:
+        return ""
+
+    part_rank = {part: idx for idx, part in enumerate(BODY_PART_ORDER)}
+    candidates.sort(key=lambda row: (
+        part_rank.get(body_part(row.exercise), len(part_rank)),
+        row.exercise,
+        row.variation,
+    ))
+
+    lines = [
+        f"Stale PRs ready for weight increase (>{stale_days}d, {min_reps}+ reps)",
+        "",
+    ]
+    for row in candidates:
+        part = body_part(row.exercise)
+        emoji = BODY_PART_EMOJI.get(part, "•")
+        variation = f" [{row.variation}]" if row.variation not in ("", "default") else ""
+        pr_date_label = datetime.strptime(row.workout_date, "%Y-%m-%d").strftime("%d %b %Y")
+        lines.append(f"{emoji}  {row.exercise}{variation} — {_fmt_performance(row)} — PR: {pr_date_label}")
+    return "\n".join(lines)
+
+
 def format_prs_compact(db_path: Path) -> str:
     """One line per exercise: emoji  exercise  [variations]  sets×reps @ weight  date."""
     rows = _load_rows(db_path)
@@ -166,19 +226,7 @@ def format_prs_compact(db_path: Path) -> str:
                 non_default = [v for v, _ in group if v not in ("default", "")]
                 var_str = f"  [{', '.join(non_default)}]" if non_default else ""
 
-                w = row.weight_kg
-                if w is not None:
-                    if row.per_hand:
-                        half = w / 2
-                        per_hand_kg = int(half) if half == int(half) else half
-                        total_str = str(int(w)) if w == int(w) else str(w)
-                        weight_str = f"{total_str}kg ({per_hand_kg}ea.)"
-                    else:
-                        weight_str = f"{int(w) if w == int(w) else w}kg"
-                    perf = f"{row.sets}×{row.reps} @ {weight_str}"
-                else:
-                    perf = f"{row.sets}×{row.reps}"
-
+                perf = _fmt_performance(row)
                 date_str = _fmt_date(row.workout_date)
                 lines.append(f"{emoji}  {exercise:<38}{var_str:<28}{perf:<22}{date_str}")
 

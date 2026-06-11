@@ -35,6 +35,11 @@ When the user sends:
 
 A workout session usually arrives across multiple chat messages. **Buffer lines in conversation memory and only write to the DB when the user signals the session is done.**
 
+**Never delegate workout logging to a sub-agent.** Do not call `delegate_task` for
+logging, updating, deleting, or verifying workout rows. This skill is stateful:
+the active Health conversation owns the workout buffer and all DB writes must be
+performed directly in this session.
+
 1. **Accumulate, don't log yet.** When the user sends one or more workout lines, append them to a running buffer for this session and reply with a short confirmation that includes the running list (e.g. "Got it. So far: squats 3x5 @ 100kg, bench 5x5 @ 70kg. Send more or say 'log it' when done."). Do **not** call `log_workout.py` yet.
 
 2. **Flush on an explicit done signal.** When the user says any of: "log it", "log this", "save", "save it", "that's it", "done", "finished", "commit", "flush", "end session" — concatenate every buffered line with newlines and make a single call:

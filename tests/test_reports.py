@@ -1,13 +1,58 @@
 """Tests for tracker.reports — PR report generation."""
 
+import sqlite3
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from tracker.core import ensure_db, insert_lines
 from tracker.parser import classify_lines, infer_equipment
-from tracker.reports import _fmt_date, body_part
+from tracker.reports import (
+    _fmt_date,
+    body_part,
+    format_stale_pr_increment_candidates,
+)
 from tracker.reports import format_prs_compact as format_prs
+
+
+def _insert_strength(
+    db: Path,
+    *,
+    workout_date: str,
+    exercise: str,
+    details: str,
+    sets: int,
+    reps: int,
+    weight_kg: float | None,
+    variation: str = "default",
+    equipment: str = "machine",
+    per_hand: bool = False,
+) -> None:
+    ensure_db(db)
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """
+            INSERT INTO workouts
+            (logged_at, workout_date, workout_type, exercise, variation, details,
+             raw_text, source, sets, reps, weight_kg, equipment, per_hand)
+            VALUES (?, ?, 'strength', ?, ?, ?, ?, 'test', ?, ?, ?, ?, ?)
+            """,
+            (
+                f"{workout_date}T00:00:00+05:30",
+                workout_date,
+                exercise,
+                variation,
+                details,
+                details,
+                sets,
+                reps,
+                weight_kg,
+                equipment,
+                int(per_hand),
+            ),
+        )
+        conn.commit()
 
 # --- Parser structured output tests ---
 
@@ -175,3 +220,96 @@ def test_format_prs_clubs_same_weight_variations(tmp_path: Path):
     lat_lines = [ln for ln in result.splitlines() if "Lat Pull Down" in ln]
     assert len(lat_lines) == 1, f"same-weight variations should club into one line, got: {lat_lines}"
     assert "short grip" in lat_lines[0] and "wide grip" in lat_lines[0]
+
+
+def test_stale_pr_increment_candidates_include_old_weighted_15_rep_pr(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Calf Raise",
+        details="3x15 @ 20kg",
+        sets=3,
+        reps=15,
+        weight_kg=20.0,
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert "Stale PRs ready for weight increase" in result
+    assert "Calf Raise" in result
+    assert "3×15 @ 20kg" in result
+    assert "PR: 01 Jan 2026" in result
+
+
+def test_stale_pr_increment_candidates_exclude_recent_pr(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-20",
+        exercise="Calf Raise",
+        details="3x15 @ 20kg",
+        sets=3,
+        reps=15,
+        weight_kg=20.0,
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert result == ""
+
+
+def test_stale_pr_increment_candidates_exclude_low_rep_pr(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Tricep Pushdown",
+        details="3x12 @ 25kg",
+        sets=3,
+        reps=12,
+        weight_kg=25.0,
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert result == ""
+
+
+def test_stale_pr_increment_candidates_exclude_bodyweight_pr(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Bodyweight Abs Crunch",
+        details="3x20",
+        sets=3,
+        reps=20,
+        weight_kg=None,
+        equipment="bodyweight",
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert result == ""
+
+
+def test_stale_pr_increment_candidates_preserve_per_hand_display(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        details="3x15 @ 15kg",
+        sets=3,
+        reps=15,
+        weight_kg=15.0,
+        variation="incline",
+        equipment="dumbbells",
+        per_hand=True,
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert "Dumbbell Bench Press [incline]" in result
+    assert "3×15 @ 15kg (7.5ea.)" in result

@@ -147,6 +147,14 @@ def test_continuation_inherits_equipment():
     assert [r.equipment for r in recs] == ["machine", "machine"]
 
 
+def test_hanstring_typo_infers_machine():
+    from tracker.parser import classify_lines
+    recs = classify_lines("Hanstring curl - 3 x 15 - 23 kg")
+    assert len(recs) == 1
+    assert recs[0].exercise == "Hamstring Curl"
+    assert recs[0].equipment == "machine"
+
+
 def test_equipment_never_becomes_variation():
     from tracker.parser import classify_lines
     for raw in ["Seated Row machine 3x12 @ 40kg", "Calf Raise machine 3x15 @ 20kg"]:

@@ -59,9 +59,10 @@ Notes:
 ## After the weekly PR summary
 
 The weekly cron job now uses `scripts/weekly_pr_summary.py` as a `no_agent` script. It:
-1. Runs `python summary.py --prs` to generate the PR output.
-2. Parses the output into structured markdown.
-3. Updates the runtime Hermes memory file (`~/.hermes/memories/MEMORY.md`) with the `## Personal Records` section.
+1. Prepends stale weighted PRs that are ready for a weight increase (`>30d`, `15+ reps`).
+2. Runs `python summary.py --prs` to generate the full PR output.
+3. Parses the full PR output into structured markdown.
+4. Updates the runtime Hermes memory file (`~/.hermes/memories/MEMORY.md`) with the `## Personal Records` section.
 
 This happens automatically — no manual steps needed.
 

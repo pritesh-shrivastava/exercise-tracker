@@ -45,6 +45,9 @@ def test_typo_biceo_curl():
 def test_typo_calf_rause():
     assert normalize_exercise("calf rause", "") == "Calf Raise"
 
+def test_typo_hanstring_curl():
+    assert normalize_exercise("hanstring curl", "") == "Hamstring Curl"
+
 
 # --- Lat pull-down variants ---
 
@@ -102,6 +105,9 @@ def test_rear_delt_in_raw():
     ("sumo squat", "Sumo Squat"),
     ("hamstring curl", "Hamstring Curl"),
     ("abs crunch", "Seated Abs Crunch Machine"),
+    ("abs crunch machine", "Seated Abs Crunch Machine"),
+    ("calf raise bodyweight", "Calf Raise Bodyweight"),
+    ("calf raise - bodyweight", "Calf Raise Bodyweight"),
 ])
 def test_canonical(exercise, expected):
     assert normalize_exercise(exercise, "") == expected

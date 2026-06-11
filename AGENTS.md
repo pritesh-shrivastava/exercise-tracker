@@ -46,6 +46,10 @@ When the user's request matches an available exercise-tracker skill, invoke it v
 - User asks for backup or database save → load `backup-db` skill
 - User asks to see the table, DB, rows, browse data, top N, last N → load `query-db` skill
 
+Do not use sub-agents for workout logging, workout updates, or DB queries. Logging is
+stateful and must stay in the active Health conversation buffer. Sub-agents may only
+be used for code fixes or audits, never for mutating `data/workouts.sqlite`.
+
 ## Health Stack
 
 - typecheck: uv run mypy tracker/ summary.py log_workout.py

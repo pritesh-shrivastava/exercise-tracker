@@ -7,7 +7,7 @@ The database is the source of truth. Hermes Agent is the sole interface — via 
 
 ## Data model
 
-### Schema (13 columns)
+### Schema (14 columns)
 
 Each workout row stores:
 
@@ -37,7 +37,12 @@ Each workout row stores:
 
 ### Auto-migration
 
-`ensure_db()` in `tracker/core.py` creates the table on first call and **auto-adds** missing columns on subsequent calls (no manual migration needed). Indexes on `workout_date` and `workout_type` are also created.
+`ensure_db()` in `tracker/core.py` creates the table on first call and **auto-adds** missing structured columns on subsequent calls (no manual migration needed). Indexes on `workout_date` and `workout_type` are also created.
+
+SQLite triggers reject invalid structured rows:
+
+- `variation` must be one of `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`
+- `per_hand=1` is valid only when `equipment='dumbbells'`
 
 ## Variation rules
 
@@ -62,13 +67,15 @@ Typo recovery: `woth` → `with`, `dumbell` → `dumbbell`, `biceo` → `bicep`,
 
 ### Exercise name normalisation
 
-`tracker/normalizer.py` normalizes exercise names to canonical forms:
+`tracker/normalizer.py` normalizes exercise names to canonical forms. Current implementation truth:
 
 - Bench press with "press" in text → `Barbell Bench Press` (if "barbell" in text) or `Dumbbell Bench Press` (default)
 - Lat pull-down → always `Lat Pull Down`; grip goes into variation column via `detect_variations()`
 - Rear delt → `Rear Delt Fly`
 - Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Seated Row machine`, `abs crunch` → `Seated Abs Crunch Machine`
 - Title-case fallback for unknown exercises
+
+Known cleanup item: `AGENTS.md` prefers `Seated Horizontal Row`, while the current normalizer maps seated/horizontal row inputs to `Seated Row machine`. Do not rewrite existing DB rows casually; choose one canonical name deliberately and backfill if this is changed.
 
 ### Equipment inference
 
@@ -78,6 +85,13 @@ Keyword-based on exercise name + raw text (combined):
 
 Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Row machine, 45 Degree Leg Press, Horizontal Leg Press, etc.).
 
+### Weight edge cases
+
+- Barbell `empty bar` and barbell `0 kg` are stored as untracked weight: `weight_kg=NULL`
+- Dumbbell `A + B kg` is stored as total `A+B` with `per_hand=1`
+- Dumbbell explicit `each`, `ea.`, `per hand`, or `each hand` is doubled and stored as total, unless it is a single-implement movement such as goblet squat
+- Dumbbell single-number weights are a user-policy hazard: current parser defaults them to `per_hand=1` for most dumbbell movements, but the logging skill treats user single-number dumbbell entries as total weight unless explicitly per-hand. Verify post-log PR output and fix rows before reporting.
+
 ### Logging behaviour
 
 When a pasted line contains both incline and decline bench wording:
@@ -85,6 +99,8 @@ When a pasted line contains both incline and decline bench wording:
 - one row gets `incline` variation
 - one row gets `decline` variation
 - both keep the same raw text for traceability
+
+Lines that do not match strength or cardio patterns are preserved as `note` rows. Reports should use structured columns (`sets`, `reps`, `weight_kg`, `equipment`, `per_hand`) rather than reparsing `details`.
 
 ### Cardio parsing
 
@@ -142,10 +158,14 @@ extra:
       - workout-summary
 ```
 
-**Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `summary.py --filter`. Binding force-loads the skill bodies so logging and queries follow the documented procedure. Same fix as `career_assistant` (see `personal_hermes/docs/hermes-skill-following.md`).
+**Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `summary.py --filter`. Binding force-loads the skill bodies so logging and queries follow the documented procedure.
 
 - `backup-db` is **deliberately not bound** — it's a nightly cron-only workflow, and backup/delete authority should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
 - Binding fires only on **new sessions** and only on **incoming messages**, so it doesn't conflict with the crons' own `--skill`. Verify after a gateway restart: `grep "DM topic loaded from config" ~/.hermes/logs/gateway.log` should show `5727496535:Health -> thread_id=7218`.
+
+Operational rule: interactive skills should use `cd /home/azureuser/exercise-tracker && ...` or otherwise set the repo root explicitly. Telegram sessions may not start in this repo, while cron jobs usually set `--workdir`.
+
+Stateful rule: do not use sub-agents for workout logging, workout updates, deletes, or DB queries. The active Health session owns the workout buffer and must perform DB writes directly.
 
 ### Cron jobs
 
@@ -161,6 +181,16 @@ It stores facts that persist across sessions but are not derivable from the data
 - Current PRs — overwritten automatically after each weekly `python summary.py --prs` run
 - Training preferences: Pull→Push→Legs priority rotation, kg not lbs, IST timezone
 - Voice memos sent via Telegram are auto-transcribed by Hermes before being logged
+
+## Prior art and agent practices
+
+Open-source workout trackers are useful references, but this project deliberately stays smaller than them:
+
+- **wger** (https://github.com/wger-project/wger) is a self-hosted fitness manager with routines, automatic progression rules, nutrition, exercise wiki, mobile apps, and REST APIs. Relevant lesson: keep workout logs, exercise metadata, progression/reporting, and automation boundaries separate.
+- **GitHub workout-tracker topic survey** (https://github.com/topics/workout-tracker) shows common tracker patterns: PR tracking, dashboards, exercise databases, imports from commercial apps, self-hosting, offline/privacy-first storage, and mobile-first logging. Relevant lesson: this repo should keep data portable and structured now, even if dashboards/imports are added later.
+- **Nous Hermes 4 research** (https://arxiv.org/abs/2508.18255 and https://huggingface.co/collections/NousResearch/hermes-4-collection) is model-level evidence for structured multi-turn reasoning and instruction following. Treat it as support for skill-buffering and explicit procedures, not as Hermes Agent runtime documentation.
+
+Design implication: the DB remains the source of truth; Python owns parsing, validation, reporting, and backup; Hermes skills are procedural wrappers that route user intent, preserve the logging buffer, and call repo tools.
 
 ## Maintenance notes
 
