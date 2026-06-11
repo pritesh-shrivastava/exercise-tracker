@@ -173,16 +173,8 @@ Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cro
 1. **PR summary** (weekly): runs `python summary.py --prs` and updates Hermes memory with latest PRs
 2. **DB backup** (nightly at 03:00 IST): runs a Hermes `no-agent` wrapper (`~/.hermes/scripts/exercise_tracker_backup_db.py`) that executes repo code in `scripts/backup_db.py` to upload SQLite + CSV to Azure Blob. **Write-only** — the cron uses a container SAS with create/write only (`cw`, no delete/list), and old blobs are deleted by Azure lifecycle policy after 30 days. Install command and policy JSON live in `skills/backup-db/SKILL.md` and `scripts/azure_lifecycle_policy_30d.json`.
 
-## Hermes memory
 
-Hermes runtime memory lives outside this repo at `~/.hermes/memories/MEMORY.md`.
-It stores facts that persist across sessions but are not derivable from the database:
-
-- Current PRs — overwritten automatically after each weekly `python summary.py --prs` run
-- Training preferences: Pull→Push→Legs priority rotation, kg not lbs, IST timezone
-- Voice memos sent via Telegram are auto-transcribed by Hermes before being logged
-
-## Prior art and agent practices
+## Open source trackers - best practices
 
 Open-source workout trackers are useful references, but this project deliberately stays smaller than them:
 

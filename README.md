@@ -4,12 +4,6 @@ A small, portable workout tracker that you can move to another VPS later.
 
 Paste what you did in natural language, and the tracker stores it in a local SQLite database. Hermes Agent is the interface — chat with it on Telegram to log and query. The data stays separate and portable.
 
-## Why this structure
-
-- **Portable**: data lives in `data/workouts.sqlite` — copy the folder to another VPS and keep going
-- **Simple**: one script can log workouts from pasted text
-- **Future-proof**: easy to add Notion, CSV export, or dashboards later
-
 ## Folder layout
 
 ```
@@ -103,7 +97,6 @@ Hermes Agent is the Telegram interface. There is no separate bot to run — just
 - "show recent workouts" → runs `python summary.py`
 - Voice memos → auto-transcribed by Hermes, then logged
 
-Run `/sethome` once in your Telegram chat so Hermes knows where to deliver scheduled outputs like the weekly PR report.
 
 ## Paste format examples
 
@@ -158,66 +151,6 @@ Skills are auto-discovered by Hermes on startup. The agent picks the right skill
 Hermes runtime memory lives outside this repo at `~/.hermes/memories/MEMORY.md`.
 The weekly PR cron updates its `## Personal Records` section automatically.
 
-## Migration to another VPS
-
-You do **not** need the same Hermes Agent instance to keep this tracker running.
-The important part is the data and the env vars, not the agent.
-
-### What to move
-
-- The whole repo folder
-- `data/workouts.sqlite` or your latest backup copy
-- Your Hermes config (if moving the agent too)
-- Any `WORKOUT_DB_PATH` setting if you use a custom DB path
-
-### Migration steps
-
-1. **Clone or copy the repo** on the new VPS
-
-```bash
-git clone https://github.com/pritesh-shrivastava/exercise-tracker.git
-cd exercise-tracker
-```
-
-2. **Restore the database**
-
-If you have the old DB file, copy it into:
-
-```bash
-mkdir -p data
-cp /path/to/old/workouts.sqlite data/workouts.sqlite
-```
-
-If you only have a backup file, restore that instead.
-
-3. **Set up Python**
-
-```bash
-pip install uv   # or: brew install uv
-uv sync
-```
-
-4. **Set the environment variable**
-
-```bash
-export WORKOUT_DB_PATH="data/workouts.sqlite"
-```
-
-Hermes Agent handles Telegram — point it at this repo from your Hermes config.
-
-5. **Verify the data**
-
-```bash
-uv run python summary.py
-```
-
-### Migration checklist
-
-- [ ] repo cloned
-- [ ] database copied
-- [ ] `uv sync` runs clean
-- [ ] `uv run python summary.py` shows data
-- [ ] Hermes pointed at the repo folder
 
 ## Maintenance
 
