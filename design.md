@@ -72,10 +72,10 @@ Typo recovery: `woth` → `with`, `dumbell` → `dumbbell`, `biceo` → `bicep`,
 - Bench press with "press" in text → `Barbell Bench Press` (if "barbell" in text) or `Dumbbell Bench Press` (default)
 - Lat pull-down → always `Lat Pull Down`; grip goes into variation column via `detect_variations()`
 - Rear delt → `Rear Delt Fly`
-- Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Seated Row machine`, `abs crunch` → `Seated Abs Crunch Machine`
+- Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Chest Supported Rows`, `seated row machine` → `Seated Row Machine`, `abs crunch` → `Seated Abs Crunch Machine`
 - Title-case fallback for unknown exercises
 
-Known cleanup item: `AGENTS.md` prefers `Seated Horizontal Row`, while the current normalizer maps seated/horizontal row inputs to `Seated Row machine`. Do not rewrite existing DB rows casually; choose one canonical name deliberately and backfill if this is changed.
+Seated/horizontal row entries without a clear machine distinction are treated as `Chest Supported Rows`. Explicit `seated row machine` entries are tracked separately as `Seated Row Machine`.
 
 ### Equipment inference
 
@@ -83,7 +83,7 @@ Keyword-based on exercise name + raw text (combined):
 
 `dumbbells` | `barbell` | `cable` | `machine` | `bodyweight` | `kettlebell` | `smith machine` | `band` | `other`
 
-Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Row machine, 45 Degree Leg Press, Horizontal Leg Press, etc.).
+Machine exercises are detected via a hardcoded set of exercise names (Chest Press, Pec Fly, Lat Pull Down, Seated Row Machine, 45 Degree Leg Press, Horizontal Leg Press, etc.).
 
 ### Weight edge cases
 
@@ -166,6 +166,19 @@ extra:
 Operational rule: interactive skills should use `cd /home/azureuser/exercise-tracker && ...` or otherwise set the repo root explicitly. Telegram sessions may not start in this repo, while cron jobs usually set `--workdir`.
 
 Stateful rule: do not use sub-agents for workout logging, workout updates, deletes, or DB queries. The active Health session owns the workout buffer and must perform DB writes directly.
+
+## Minimal form link
+
+The preferred next logging interface is a small mobile form link launched from Telegram, not a full workout dashboard. It exists to reduce the failure modes seen in free-text chat: false "logged" confirmations before DB writes, wrong working directory, memory-based PR answers, ambiguous row edits, and delegated DB mutations.
+
+SQLite remains the source of truth. The form must write directly to `data/workouts.sqlite`, then re-query the database before showing any saved/logged confirmation. A user-facing save confirmation is only valid after both the SQLite insert/update and the post-write read succeed.
+
+V1 pages:
+- `Log` — structured strength entry with date, exercise, variation, sets, reps, weight, equipment, and per-hand controls; supports multiple rows before saving.
+- `Today` — DB-backed list of today's rows with exact row selection for corrections.
+- `PRs` — renders the same report path as `summary.py --prs`.
+
+Hermes remains useful as the launcher, summary interface, and fallback chat path, but structured daily logging should prefer the form. Deployment/security is intentionally undecided; until chosen, the form should default to local/private access only.
 
 ### Cron jobs
 

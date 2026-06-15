@@ -23,11 +23,11 @@ _CANONICAL: dict[str, str] = {
     "bicep curl on cable": "Bicep Curl on Cable",
     "bicep preacher curl": "Bicep Preacher Curl",
     "reverse curl on cable": "Reverse Curl on Cable",
-    "seated row": "Seated Row machine",
-    "horizontal row": "Seated Row machine",
-    "horizontal rows": "Seated Row machine",
-    "seated horizontal row": "Seated Row machine",
-    "seated row machine": "Seated Row machine",
+    "seated row": "Chest Supported Rows",
+    "horizontal row": "Chest Supported Rows",
+    "horizontal rows": "Chest Supported Rows",
+    "seated horizontal row": "Chest Supported Rows",
+    "seated row machine": "Seated Row Machine",
     "horizontal leg press": "Horizontal Leg Press",
     "vertical chest press": "Vertical Chest Press Machine",
     "vertical chest press machine": "Vertical Chest Press Machine",
@@ -61,7 +61,8 @@ _CANONICAL: dict[str, str] = {
     "bodyweight abs crunch": "Bodyweight Abs Crunch",
     "bodyweight crunch": "Bodyweight Crunch",
     "barbell shrug": "Barbell Shrug",
-    "chest supported row": "Chest Supported Row",
+    "chest supported row": "Chest Supported Rows",
+    "chest supported rows": "Chest Supported Rows",
 }
 
 

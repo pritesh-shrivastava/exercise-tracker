@@ -199,6 +199,18 @@ def test_format_prs_picks_highest_weight_from_structured(tmp_path: Path):
     assert "70" not in result, "Lower weight should not appear in PRs"
 
 
+def test_format_prs_picks_lowest_assistance_weight(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    insert_lines(db, "assisted dips 3x8 @ 40kg")
+    insert_lines(db, "assisted dips 2x15 @ 35kg")
+
+    result = format_prs(db)
+
+    assert "Assisted Dips" in result
+    assert "2×15 @ 35kg" in result
+    assert "40kg" not in result
+
+
 def test_format_prs_splits_variations_with_different_weight(tmp_path: Path):
     """Variations of one exercise with different PR weights get separate lines."""
     db = tmp_path / "workouts.sqlite"

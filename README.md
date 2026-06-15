@@ -97,6 +97,18 @@ Hermes Agent is the Telegram interface. There is no separate bot to run — just
 - "show recent workouts" → runs `python summary.py`
 - Voice memos → auto-transcribed by Hermes, then logged
 
+## Workout form link
+
+For daily logging, prefer the planned mobile form link over free-text Telegram. The form is intentionally small: open it from Telegram, enter one or more structured rows, save, and verify the exact inserted rows shown back from SQLite.
+
+Planned v1 pages:
+
+- `Log` — date, exercise, variation, sets, reps, weight, equipment, and per-hand fields
+- `Today` — today's saved rows, with exact row selection for corrections
+- `PRs` — DB-backed PR output using the same report code as `summary.py --prs`
+
+Telegram stays useful for launching the form and asking for summaries/PRs. The form should not show "saved" until the SQLite write succeeds and the inserted rows are re-read from `data/workouts.sqlite`.
+
 
 ## Paste format examples
 

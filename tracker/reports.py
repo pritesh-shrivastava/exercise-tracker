@@ -92,10 +92,14 @@ def _best_sets(rows: Iterable[PRRow]) -> dict[tuple[str, str], PRRow]:
     best: dict[tuple[str, str], tuple[tuple, PRRow]] = {}
     for row in rows:
         key = (row.exercise, row.variation or "flat")
-        # Score: higher weight first, then higher reps, then higher sets, then earliest date
-        w = row.weight_kg if row.weight_kg is not None else -1.0
-        # Use negative date so earlier dates score higher (earliest = first PR)
-        score = (w, row.reps, row.sets, _neg_date(row.workout_date))
+        assisted = "assisted" in row.exercise.lower()
+        # Assisted movements treat lower assistance weight as better.
+        # For all other movements, higher weight remains better.
+        if row.weight_kg is None:
+            w = float("inf") if assisted else -1.0
+        else:
+            w = row.weight_kg
+        score = ((-w) if assisted else w, row.reps, row.sets, _neg_date(row.workout_date))
         if key not in best or score > best[key][0]:
             best[key] = (score, row)
     return {k: v[1] for k, v in best.items()}

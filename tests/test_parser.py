@@ -1,6 +1,8 @@
 """Tests for tracker.parser.classify_line."""
 
-from tracker.parser import classify_line
+import pytest
+
+from tracker.parser import WorkoutRecord, classify_line, classify_lines, validate_record
 
 
 def test_strength_basic():
@@ -107,14 +109,12 @@ def test_raw_text_preserved():
 
 
 def test_bodywt_infers_bodyweight():
-    from tracker.parser import classify_lines
     recs = classify_lines("bodywt squats 3x20")
     for r in recs:
         assert r.equipment == "bodyweight"
 
 
 def test_goblet_single_not_doubled():
-    from tracker.parser import classify_lines
     recs = classify_lines("Goblet Squat 2x15 @ 10 kg")
     assert len(recs) == 1
     r = recs[0]
@@ -123,7 +123,6 @@ def test_goblet_single_not_doubled():
 
 
 def test_dumbbell_single_gets_per_hand():
-    from tracker.parser import classify_lines
     recs = classify_lines("Dumbbell Shoulder Press 3x10 @ 10 kg")
     assert len(recs) == 1
     r = recs[0]
@@ -132,7 +131,6 @@ def test_dumbbell_single_gets_per_hand():
 
 
 def test_dumbbell_plus_gets_per_hand():
-    from tracker.parser import classify_lines
     recs = classify_lines("Dumbbell Curl 3x10 @ 5 + 5 kg")
     assert len(recs) == 1
     r = recs[0]
@@ -141,14 +139,12 @@ def test_dumbbell_plus_gets_per_hand():
 
 
 def test_continuation_inherits_equipment():
-    from tracker.parser import classify_lines
     recs = classify_lines("Leg Extension machine 2x15 @ 36kg\n1x15 @ 43kg")
     assert len(recs) == 2
     assert [r.equipment for r in recs] == ["machine", "machine"]
 
 
 def test_hanstring_typo_infers_machine():
-    from tracker.parser import classify_lines
     recs = classify_lines("Hanstring curl - 3 x 15 - 23 kg")
     assert len(recs) == 1
     assert recs[0].exercise == "Hamstring Curl"
@@ -156,7 +152,6 @@ def test_hanstring_typo_infers_machine():
 
 
 def test_equipment_never_becomes_variation():
-    from tracker.parser import classify_lines
     for raw in ["Seated Row machine 3x12 @ 40kg", "Calf Raise machine 3x15 @ 20kg"]:
         recs = classify_lines(raw)
         for r in recs:
@@ -164,30 +159,45 @@ def test_equipment_never_becomes_variation():
 
 
 def test_validate_record_passes_good():
-    from tracker.parser import WorkoutRecord, validate_record
-    r = WorkoutRecord("strength", "Test", "default", "3x10 @ 50kg", "test 3x10 @ 50kg", sets=3, reps=10, weight_kg=50.0, equipment="machine", per_hand=False)
+    r = WorkoutRecord(
+        "strength",
+        "Test",
+        "default",
+        "3x10 @ 50kg",
+        "test 3x10 @ 50kg",
+        sets=3,
+        reps=10,
+        weight_kg=50.0,
+        equipment="machine",
+        per_hand=False,
+    )
     validate_record(r)
 
 
 def test_validate_record_rejects_bad_variation():
-    from tracker.parser import WorkoutRecord, validate_record
-    import pytest
     r = WorkoutRecord("strength", "Test", "machine", "3x10", "test", sets=3, reps=10, equipment="machine")
     with pytest.raises(ValueError, match="Invalid variation"):
         validate_record(r)
 
 
 def test_validate_record_rejects_equipment_leak():
-    from tracker.parser import WorkoutRecord, validate_record
-    import pytest
     r = WorkoutRecord("strength", "Test", "dumbbells", "3x10", "test", sets=3, reps=10, equipment="dumbbells")
     with pytest.raises(ValueError, match="Equipment leaked"):
         validate_record(r)
 
 
 def test_validate_record_rejects_per_hand_non_dumbbell():
-    from tracker.parser import WorkoutRecord, validate_record
-    import pytest
-    r = WorkoutRecord("strength", "Test", "default", "3x10", "test", sets=3, reps=10, weight_kg=20.0, equipment="machine", per_hand=True)
+    r = WorkoutRecord(
+        "strength",
+        "Test",
+        "default",
+        "3x10",
+        "test",
+        sets=3,
+        reps=10,
+        weight_kg=20.0,
+        equipment="machine",
+        per_hand=True,
+    )
     with pytest.raises(ValueError, match="per_hand"):
         validate_record(r)

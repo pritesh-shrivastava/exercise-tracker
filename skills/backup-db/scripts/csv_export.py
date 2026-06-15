@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Export workouts table to CSV. Fallback when sqlite3 CLI isn't available."""
-import sqlite3, csv, sys, os
+import csv
+import os
+import sqlite3
+import sys
 
 # script is at skills/backup-db/scripts/csv_export.py, repo root is 3 dirs up
 script_dir = os.path.dirname(os.path.abspath(__file__))

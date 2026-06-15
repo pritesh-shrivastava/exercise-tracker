@@ -23,3 +23,6 @@ select = ["E", "F", "W", "I"]
 python_version = "3.11"
 strict = false
 ignore_missing_imports = true
+
+[tool.vulture]
+ignore_names = ["normalize", "row_factory"]

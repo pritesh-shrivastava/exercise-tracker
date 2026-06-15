@@ -93,7 +93,8 @@ _MACHINE_EXERCISES = {
     "bicep preacher curl", "preacher curl",
     "face pull",
     "assisted pullup", "assisted pull up",
-    "chest supported row",
+    "chest supported row", "chest supported rows",
+    "seated row machine",
     "chest press vertical",
     "rear delt fly",
 }
@@ -286,7 +287,7 @@ def _build_record(exercise: str, text: str, sets_str: str, reps_str: str,
     exercise = _clean_exercise_name(exercise)
     inf_text = inference_text or text
     normalized = normalize_exercise(exercise, inf_text)
-    variations = detect_variations(normalized, inf_text)
+    variations = [sanitize_variation(v) for v in detect_variations(normalized, inf_text)]
     unit_s = (unit_str or "").lower()
     sets = int(sets_str)
     reps = int(reps_str)

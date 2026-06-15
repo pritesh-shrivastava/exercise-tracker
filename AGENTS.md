@@ -64,7 +64,8 @@ Key mappings in `tracker/normalizer.py` — use these exact names in the DB:
 - `bicep curl` → `Dumbbell Bicep Curl`
 - `leg curl` → `Hamstring Curl`
 - `leg press` → `45 Degree Leg Press`
-- `seated row` / `horizontal row` → `Seated Horizontal Row`
+- `seated row` / `horizontal row` → `Chest Supported Rows`
+- `seated row machine` → `Seated Row Machine`
 - `abs crunch` → `Seated Abs Crunch Machine`
 - `lat pull down` (any grip) → `Lat Pull Down` + variation column (`short grip` / `wide grip`)
 - `tricep pushdown` → equipment is `cable` (not machine)

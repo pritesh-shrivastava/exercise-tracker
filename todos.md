@@ -22,3 +22,14 @@ Still optional hardening:
 ## Telegram / Chat Input
 
 - [ ] Enable voice memo logging — Hermes is already the Telegram gateway
+
+## Workout Form Link
+
+- [ ] Decide deployment/security method for the form link.
+- [ ] Implement a minimal mobile form server for structured workout logging.
+- [ ] Add `Log` page with multi-row date/exercise/variation/sets/reps/weight/equipment/per-hand inputs.
+- [ ] Add DB-backed post-save confirmation that re-reads inserted rows before saying saved.
+- [ ] Add `Today` page for current-day rows and exact row edits.
+- [ ] Add `PRs` page using the existing PR report code.
+- [ ] Add tests for form insert/update behavior and validation failures.
+- [ ] Update Telegram skill docs to prefer the form link for daily structured logging.
