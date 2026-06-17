@@ -104,11 +104,19 @@ def test_rear_delt_in_raw():
     ("leg curl", "Hamstring Curl"),
     ("leg press", "45 Degree Leg Press"),
     ("sumo squat", "Sumo Squat"),
+    ("sumo squats", "Sumo Squat"),
     ("hamstring curl", "Hamstring Curl"),
     ("abs crunch", "Seated Abs Crunch Machine"),
     ("abs crunch machine", "Seated Abs Crunch Machine"),
-    ("calf raise bodyweight", "Calf Raise Bodyweight"),
-    ("calf raise - bodyweight", "Calf Raise Bodyweight"),
+    ("body weight squats", "Bodyweight Squat"),
+    ("bodywt squats", "Bodyweight Squat"),
+    ("bodyweight squats", "Bodyweight Squat"),
+    ("calf raise bodyweight", "Bodyweight Calf Raise"),
+    ("calf raise - bodyweight", "Bodyweight Calf Raise"),
+    ("bodywt calf raise", "Bodyweight Calf Raise"),
+    ("kettleball swing", "Kettlebell Swing"),
+    ("kettle bell swing", "Kettlebell Swing"),
+    ("kettlebell swing", "Kettlebell Swing"),
 ])
 def test_canonical(exercise, expected):
     assert normalize_exercise(exercise, "") == expected

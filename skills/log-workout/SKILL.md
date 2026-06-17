@@ -1,31 +1,47 @@
 ---
 name: log-workout
-description: Use when the user pastes workout lines, says what they trained, mentions exercise sets or reps, or wants to log a workout session. Handles strength (sets x reps @ weight), cardio (distance, duration), and mixed sessions.
-version: 1.1.0
+description: Use as the Telegram fallback when the user pastes workout lines, says what they trained, mentions exercise sets or reps, or wants to log a workout session. Prefer the private web form for routine structured logging.
+version: 1.2.0
 ---
+
+## Primary workflow
+
+Daily logging should happen in the private mobile web form served by `web_form.py` over Tailscale. If the user asks for "the form", "link", "open logging", or similar, reply with the private URL pattern:
+
+```text
+http://<vps-tailscale-ip>:8765/log
+```
+
+If the form server is not running, start it from the repo on the VPS:
+
+```bash
+cd /home/azureuser/exercise-tracker && uv run python web_form.py --host "$(tailscale ip -4)" --port 8765
+```
+
+Do not expose the form on a public VPS interface. It has no standalone public auth layer; Tailscale is the access boundary.
 
 ## Working directory & ad-hoc reads (exercise-tracker)
 
 Interactive Telegram sessions in the Health topic have **no working directory in this repo**.
-Every command in these skills (`python summary.py`, `python log_workout.py`, the `python -c`
+Every command in these skills (`uv run python summary.py`, `uv run python log_workout.py`, the `uv run python -c`
 DB queries) is written **relative to the repo root**, so **prefix each command with a `cd`
-into the repo** — otherwise a bare `python summary.py` runs from the home dir and fails with
+into the repo** — otherwise a bare summary command runs from the home dir and fails with
 `can't open file '/home/azureuser/summary.py'`:
 
 ```bash
-cd /home/azureuser/exercise-tracker && python summary.py --prs
+cd /home/azureuser/exercise-tracker && uv run python summary.py --prs
 ```
 
 Common ad-hoc requests (not the logging flow):
-- **"Show PRs" / "personal records"** → `cd /home/azureuser/exercise-tracker && python summary.py --prs`
-- **"Show recent" / "summary"** → `cd /home/azureuser/exercise-tracker && python summary.py`
+- **"Show PRs" / "personal records"** → `cd /home/azureuser/exercise-tracker && uv run python summary.py --prs`
+- **"Show recent" / "summary"** → `cd /home/azureuser/exercise-tracker && uv run python summary.py`
 - **DB queries** (query-db skill) → run the `python -c` snippet with the same `cd` prefix.
 
 (Cron jobs set `--workdir` so they're already in the repo; this note is for chat replies.)
 
 ## When to use
 
-When the user sends:
+When the user sends free-text workouts in Telegram and wants Hermes to log them instead of using the form:
 - Strength lines: "squats 3x5 @ 100kg", "bench 5x5 @ 70kg", "deadlift 1x5 @ 140kg"
 - Cardio lines: "20 min zone 2 cardio", "5 km run in 28:30", "cycling 45 min"
 - Mixed sessions with multiple lines
@@ -33,7 +49,11 @@ When the user sends:
 
 ## Procedure
 
-A workout session usually arrives across multiple chat messages. **Buffer lines in conversation memory and only write to the DB when the user signals the session is done.**
+First decide whether this is a form-launch request or fallback chat logging:
+- If the user asks for the form/link, provide the Tailscale form URL and do not log anything.
+- If the user pastes workout lines directly, continue with fallback chat logging below.
+
+A fallback chat workout session usually arrives across multiple chat messages. **Buffer lines in conversation memory and only write to the DB when the user signals the session is done.**
 
 **Never delegate workout logging to a sub-agent.** Do not call `delegate_task` for
 logging, updating, deleting, or verifying workout rows. This skill is stateful:
@@ -44,7 +64,7 @@ performed directly in this session.
 
 2. **Flush on an explicit done signal.** When the user says any of: "log it", "log this", "save", "save it", "that's it", "done", "finished", "commit", "flush", "end session" — concatenate every buffered line with newlines and make a single call:
    ```
-   python log_workout.py "squats 3x5 @ 100kg
+   uv run python log_workout.py "squats 3x5 @ 100kg
    bench 5x5 @ 70kg
    20 min zone 2 cardio"
    ```
@@ -62,11 +82,11 @@ performed directly in this session.
 
 6. After flushing, confirm the count returned: "Logged N workout line(s)."
 
-7. If this looks like the last session of the week, offer to run `python summary.py` (recent) or `python summary.py --prs` (personal records).
+7. If this looks like the last session of the week, offer to run `uv run python summary.py` (recent) or `uv run python summary.py --prs` (personal records).
 
 ## Post-flush verification (MANDATORY)
 
-After every log, run `python summary.py --prs` and verify:
+After every fallback chat log, run `uv run python summary.py --prs` and verify:
 
 1. **Weights are present** for every exercise that had them in the buffer. A missing weight means the parser dropped it — fix immediately with SQL.
 2. **Exercise names are canonical — no plural drift.** No new variants (e.g. "Calf Raises" alongside existing "Calf Raise", "Barbell Curls" vs "Barbell Curl", "Hamstring Curls" vs "Hamstring Curl"). If the same exercise appears twice in PR output under slightly different names, merge with SQL: `UPDATE workouts SET exercise='<canonical singular>' WHERE exercise='<variant>'`.
@@ -132,7 +152,7 @@ The parser has known gaps. After every log, query the new rows (`WHERE id > <las
 - **The parser has known format gaps.** Test every new session's input with the parser BEFORE writing to the DB. See procedure below. The user consistently uses dash-separated weight (`3x12 - 30 kg`), which the regexes now support. But novel formats will still surface — always dry-run first.
 - **Continuation lines** (bare `1 x 15 - 43 kg` without exercise name) inherit from the previous line's exercise. The parser handles this via `CONTINUATION_RE` + `classify_lines()` — always use `classify_lines()` not `classify_line()` for multi-line input.
 - **Comma-separated mixed weights** (`2 x 15 - 10 kg, 1 x 15 - 12.5 kg`) split into separate rows if `MULTI_LINE_PATTERN` detects them. This requires the line to have `N x` or `N set` after the comma.
-- **Verify PR output after every log.** Run `python summary.py --prs` and check that weights parsed correctly. If an exercise name has a weight suffix (e.g. "Standing Dumbbell Tricep Extension - 10 Kg"), the parser created a bogus variation — fix with SQL: `UPDATE workouts SET exercise='<canonical>', weight_kg=<value>, per_hand=0 WHERE id=<id>`.
+- **Verify PR output after every log.** Run `uv run python summary.py --prs` and check that weights parsed correctly. If an exercise name has a weight suffix (e.g. "Standing Dumbbell Tricep Extension - 10 Kg"), the parser created a bogus variation — fix with SQL: `UPDATE workouts SET exercise='<canonical>', weight_kg=<value>, per_hand=0 WHERE id=<id>`.
 - **Fix old entries when correcting current ones.** If the user corrects today's weight, they may also want previous entries for that exercise updated — ask.
 - **Incline + decline bench in one line** (`bench incline and decline 3x15 @ 15kg`) — the parser splits this into two rows, one `incline` and one `decline`. Confirm both are logged by checking N=2.
 - **IST timezone is assumed** — `logged_at` and `workout_date` are always stored in IST. Do not convert timestamps.
@@ -156,11 +176,11 @@ The parser has known gaps. After every log, query the new rows (`WHERE id > <las
    ```
    Verify: all exercises named correctly, weights present where expected, no bogus `note` rows for strength lines, mixed-weight lines split correctly.
 
-2. **Then log to DB:** `python log_workout.py "<text>"`. Output says `Logged N workout line(s) into data/workouts.sqlite` where N matches expected.
+2. **Then log to DB:** `uv run python log_workout.py "<text>"`. Output says `Logged N workout line(s) into data/workouts.sqlite` where N matches expected.
 
 3. **Run the post-flush fix checklist** (see "Post-flush fixes" section above) — barbell weight, name merge, per_hand, body part, spelling. Do these BEFORE showing the user.
 
-4. **Verify PR output:** `python summary.py --prs`. Check weights, exercise names, and that newly logged entries appear with today's date and correct values.
+4. **Verify PR output:** `uv run python summary.py --prs`. Check weights, exercise names, and that newly logged entries appear with today's date and correct values.
 
 ### Codex delegation pattern for parser/normalizer/reports fixes
 

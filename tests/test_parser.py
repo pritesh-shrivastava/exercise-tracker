@@ -111,7 +111,32 @@ def test_raw_text_preserved():
 def test_bodywt_infers_bodyweight():
     recs = classify_lines("bodywt squats 3x20")
     for r in recs:
+        assert r.exercise == "Bodyweight Squat"
         assert r.equipment == "bodyweight"
+
+
+def test_body_weight_infers_bodyweight():
+    recs = classify_lines("Body weight squats - 3 x 20")
+    assert len(recs) == 1
+    r = recs[0]
+    assert r.exercise == "Bodyweight Squat"
+    assert r.equipment == "bodyweight"
+
+
+def test_kettleball_normalizes_to_kettlebell_and_equipment():
+    recs = classify_lines("Kettleball swing - 3 x 15 - 12 kg")
+    assert len(recs) == 1
+    r = recs[0]
+    assert r.exercise == "Kettlebell Swing"
+    assert r.equipment == "kettlebell"
+
+
+def test_bodyweight_suffix_calf_raise_normalizes_to_prefix():
+    recs = classify_lines("Calf raise bodyweight - 3 x 15")
+    assert len(recs) == 1
+    r = recs[0]
+    assert r.exercise == "Bodyweight Calf Raise"
+    assert r.equipment == "bodyweight"
 
 
 def test_goblet_single_not_doubled():

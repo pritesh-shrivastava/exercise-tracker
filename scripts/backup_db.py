@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Upload workout DB backups to Azure Blob Storage without pruning.
 
-This script is designed for Hermes no-agent cron execution. It never lists or
+This script can run manually or from a VPS cron/systemd timer. It never lists or
 deletes blobs; Azure lifecycle policy owns retention.
 """
 

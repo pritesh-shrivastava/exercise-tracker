@@ -97,6 +97,7 @@ def test_parser_weight_missing():
     ("Face Pull", "face pull", "machine"),
     ("Bicep Curl", "bicep curl", "other"),
     ("Kettlebell Swing", "kettlebell swing", "kettlebell"),
+    ("Kettlebell Swing", "kettleball swing", "kettlebell"),
 ])
 def test_infer_equipment(exercise, raw, expected):
     assert infer_equipment(exercise, raw) == expected
@@ -118,6 +119,9 @@ def test_infer_equipment(exercise, raw, expected):
     ("Squat", "Legs"),
     ("Leg Press", "Legs"),
     ("Calf Raise", "Legs"),
+    ("Hip Thrust", "Legs"),
+    ("Kettlebell Swing", "Legs"),
+    ("Kettleball Swing", "Legs"),
     ("Bicep Curl", "Biceps"),
     ("Barbell Curl", "Biceps"),
     ("Dumbbell Hammer Curl", "Biceps"),

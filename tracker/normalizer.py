@@ -10,6 +10,7 @@ import re
 _STRIP_RE = re.compile(r"[^a-z0-9+\s]")
 _SPACE_RE = re.compile(r"\s+")
 _TRAILING_PAREN_RE = re.compile(r"\s*\([^)]*\)\s*$")
+_BODYWEIGHT_ALIAS_RE = re.compile(r"\bbody\s*(?:wt|weight)\b")
 
 _CANONICAL: dict[str, str] = {
     "shoulder press": "Dumbbell Shoulder Press",
@@ -46,6 +47,7 @@ _CANONICAL: dict[str, str] = {
     "leg press": "45 Degree Leg Press",
     "45 degree leg press": "45 Degree Leg Press",
     "sumo squat": "Sumo Squat",
+    "sumo squats": "Sumo Squat",
     "abs crunch": "Seated Abs Crunch Machine",
     "abs crunch machine": "Seated Abs Crunch Machine",
     "seated abs crunch machine": "Seated Abs Crunch Machine",
@@ -56,10 +58,17 @@ _CANONICAL: dict[str, str] = {
     "dumbell shrugs": "Dumbbell Shrugs",
     "face pull": "Face Pull",
     "cable rope upright row": "Cable Rope Upright Row",
-    "calf raise bodyweight": "Calf Raise Bodyweight",
-    "calf raise body weight": "Calf Raise Bodyweight",
+    "bodyweight squat": "Bodyweight Squat",
+    "bodyweight squats": "Bodyweight Squat",
+    "calf raise bodyweight": "Bodyweight Calf Raise",
+    "calf raises bodyweight": "Bodyweight Calf Raise",
+    "bodyweight calf raise": "Bodyweight Calf Raise",
+    "bodyweight calf raises": "Bodyweight Calf Raise",
     "bodyweight abs crunch": "Bodyweight Abs Crunch",
     "bodyweight crunch": "Bodyweight Crunch",
+    "kettleball swing": "Kettlebell Swing",
+    "kettlebell swing": "Kettlebell Swing",
+    "kettle bell swing": "Kettlebell Swing",
     "barbell shrug": "Barbell Shrug",
     "chest supported row": "Chest Supported Rows",
     "chest supported rows": "Chest Supported Rows",
@@ -74,6 +83,9 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     exercise = _TRAILING_PAREN_RE.sub("", exercise).strip()
     ex = _clean(exercise)
     raw = _clean(raw_text)
+
+    ex = _BODYWEIGHT_ALIAS_RE.sub("bodyweight", ex)
+    raw = _BODYWEIGHT_ALIAS_RE.sub("bodyweight", raw)
     combined = f"{ex} {raw}".strip()
 
     # Normalize "dumbell" -> "dumbbell" in cleaned text

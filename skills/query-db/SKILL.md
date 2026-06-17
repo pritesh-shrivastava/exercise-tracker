@@ -1,7 +1,7 @@
 ---
 name: query-db
-description: Use when the user wants to see the database contents, show the table, browse rows, peek at data, or inspect workouts in the SQLite DB.
-version: 1.0.0
+description: Use when the user wants to see raw database contents, show the table, browse rows, peek at data, or inspect workouts in the SQLite DB. For normal same-day corrections, prefer the web form Today page.
+version: 1.1.0
 ---
 
 ## When to use
@@ -14,10 +14,18 @@ When the user asks:
 
 ## Procedure
 
+For same-day edits/deletes, first point the user to the private web form `Today` page:
+
+```text
+http://<vps-tailscale-ip>:8765/today
+```
+
+For raw inspection, query SQLite directly.
+
 1. Query all rows (or with a LIMIT if the user asks for top N):
 
 ```bash
-python -c "
+cd /home/azureuser/exercise-tracker && uv run python -c "
 import sqlite3, json
 conn = sqlite3.connect('data/workouts.sqlite')
 conn.row_factory = sqlite3.Row

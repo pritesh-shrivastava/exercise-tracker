@@ -113,13 +113,13 @@ def _is_machine_exercise(exercise: str, raw_text: str) -> bool:
 def infer_equipment(exercise: str, raw_text: str) -> str:
     """Infer equipment type from exercise name and raw text."""
     combined = f"{exercise} {raw_text}".lower()
-    if re.search(r"\bbody\s*wt\b|\bbodyweight\b", combined):
+    if re.search(r"\bbody\s*(?:wt|weight)\b|\bbodyweight\b", combined):
         return "bodyweight"
     if "barbell" in combined:
         return "barbell"
     if any(x in combined for x in ["dumbbell", "dumbell", "dumbbell "]):
         return "dumbbells"
-    if "kettlebell" in combined or "kettle bell" in combined:
+    if "kettlebell" in combined or "kettle bell" in combined or "kettleball" in combined:
         return "kettlebell"
     if "cable" in combined or "tricep pushdown" in combined or "pushdown" in combined:
         return "cable"
@@ -222,7 +222,7 @@ def validate_record(rec: WorkoutRecord) -> None:
             raise ValueError(f"Invalid variation: {rec.variation!r}")
         if rec.per_hand and rec.equipment != "dumbbells":
             raise ValueError(f"per_hand set for non-dumbbell row: {rec}")
-        if re.search(r"\bbody\s*wt\b|\bbodyweight\b", rec.raw_text, re.I):
+        if re.search(r"\bbody\s*(?:wt|weight)\b|\bbodyweight\b", rec.raw_text, re.I):
             if rec.equipment != "bodyweight":
                 raise ValueError(f"Bodyweight text did not infer bodyweight: {rec}")
         expected = format_details(rec.sets, rec.reps, rec.weight_kg)

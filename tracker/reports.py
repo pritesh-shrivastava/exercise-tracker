@@ -50,7 +50,9 @@ def body_part(exercise: str) -> str:
         "shrug", "shrugs",
     ]
     legs = ["leg press", "leg extension", "hamstring curl",
-            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise", "lunge", "lunges", "glute kickback"]
+            "goblet squat", "goblet squats", "sumo squat", "squat", "calf raise",
+            "lunge", "lunges", "glute kickback", "hip thrust", "kettlebell swing",
+            "kettleball swing"]
     biceps = ["bicep", "curl on cable", "preacher curl", "hammer curl", "reverse curl", "curl"]
     biceps_exclude = ["hamstring curl", "calf curl"]
     triceps = ["tricep", "pushdown", "dip", "dips", "overhead extension", "extension"]

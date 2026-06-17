@@ -3,7 +3,7 @@
 ## Purpose
 
 This tracker keeps workout logs portable and easy to move between VPS instances.
-The database is the source of truth. Hermes Agent is the sole interface — via Telegram for logging and queries, and via cron for scheduled reports. The Python scripts are tools that Hermes calls; they are not run directly by the user.
+The database is the source of truth. The primary user interface is a small stdlib mobile web form served from the VPS and reached from the phone over Tailscale. Hermes Agent remains a Telegram fallback for chat logging, summaries, PRs, backups, and raw DB inspection.
 
 ## Data model
 
@@ -102,6 +102,17 @@ When a pasted line contains both incline and decline bench wording:
 
 Lines that do not match strength or cardio patterns are preserved as `note` rows. Reports should use structured columns (`sets`, `reps`, `weight_kg`, `equipment`, `per_hand`) rather than reparsing `details`.
 
+### Web form behaviour
+
+`web_form.py` is the preferred daily logging path. It exposes:
+- `Log` — structured strength entry with date, exercise, variation, sets, reps, weight, equipment, and per-hand controls; supports multiple rows before saving.
+- `Today` — DB-backed list of today's strength rows with exact row selection for corrections and deletes.
+- `PRs` — renders the same report path as `summary.py --prs`.
+
+The form writes directly to `data/workouts.sqlite`, then re-queries inserted or edited rows before showing a saved/updated/deleted confirmation. A user-facing confirmation is only valid after both the SQLite write and the post-write read succeed.
+
+The web form has no public-internet authentication layer. Serve it only on `127.0.0.1` for local use or on the VPS Tailscale IP for phone access over the private tailnet. Do not bind it to a public VPS interface unless a real auth proxy is added.
+
 ### Cardio parsing
 
 Matches: `[distance km/mi] [activity] duration [min/hr] [in HH:MM]`
@@ -120,8 +131,8 @@ Summary responses are tiered — Hermes picks the right one based on natural lan
 
 | Level | Example trigger | Script |
 |-------|----------------|--------|
-| Short | "show recent workouts" | `python summary.py` |
-| Full PRs | "show my PRs", "best lifts" | `python summary.py --prs` |
+| Short | "show recent workouts" | `uv run python summary.py` |
+| Full PRs | "show my PRs", "best lifts" | `uv run python summary.py --prs` |
 
 ### Body part classification
 
@@ -134,9 +145,9 @@ Keywords for each group are in `tracker/reports.py:body_part()`. Special rules: 
 Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
 
 Four skills, all in `skills/`:
-- `log-workout` — parse and insert lines, handle incline/decline split, confirm count
+- `log-workout` — fallback chat logging only; prefer the web form for routine structured logging
 - `workout-summary` — pick the right summary tier and format for Telegram
-- `backup-db` — no-agent SQLite + CSV upload to Azure Blob (retention handled server-side by a 30-day lifecycle policy, not by the skill)
+- `backup-db` — SQLite + CSV upload to Azure Blob (retention handled server-side by a 30-day lifecycle policy, not by the skill)
 - `query-db` — browse raw table rows, excluding id/raw_text/details
 
 The data layer (`tracker/core.py`, `tracker/parser.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
@@ -169,7 +180,7 @@ Stateful rule: do not use sub-agents for workout logging, workout updates, delet
 
 ## Minimal form link
 
-The preferred next logging interface is a small mobile form link launched from Telegram, not a full workout dashboard. It exists to reduce the failure modes seen in free-text chat: false "logged" confirmations before DB writes, wrong working directory, memory-based PR answers, ambiguous row edits, and delegated DB mutations.
+The preferred logging interface is a small mobile form, not a full workout dashboard. It exists to reduce the failure modes seen in free-text chat: false "logged" confirmations before DB writes, wrong working directory, memory-based PR answers, ambiguous row edits, and delegated DB mutations.
 
 SQLite remains the source of truth. The form must write directly to `data/workouts.sqlite`, then re-query the database before showing any saved/logged confirmation. A user-facing save confirmation is only valid after both the SQLite insert/update and the post-write read succeed.
 
@@ -178,13 +189,15 @@ V1 pages:
 - `Today` — DB-backed list of today's rows with exact row selection for corrections.
 - `PRs` — renders the same report path as `summary.py --prs`.
 
-Hermes remains useful as the launcher, summary interface, and fallback chat path, but structured daily logging should prefer the form. Deployment/security is intentionally undecided; until chosen, the form should default to local/private access only.
+Hermes remains useful as the summary interface and fallback chat path, but structured daily logging should prefer the form. Deployment/security is intentionally private-by-default: serve over Tailscale, not the public internet.
 
-### Cron jobs
+### Maintenance jobs
 
-Scheduled via Hermes cron (`hermes cron create ...`, persisted to `~/.hermes/cron/jobs.json`):
-1. **PR summary** (weekly): runs `python summary.py --prs` and updates Hermes memory with latest PRs
-2. **DB backup** (nightly at 03:00 IST): runs a Hermes `no-agent` wrapper (`~/.hermes/scripts/exercise_tracker_backup_db.py`) that executes repo code in `scripts/backup_db.py` to upload SQLite + CSV to Azure Blob. **Write-only** — the cron uses a container SAS with create/write only (`cw`, no delete/list), and old blobs are deleted by Azure lifecycle policy after 30 days. Install command and policy JSON live in `skills/backup-db/SKILL.md` and `scripts/azure_lifecycle_policy_30d.json`.
+Recommended recurring maintenance:
+1. **DB backup** (nightly at 03:00 IST): run `scripts/backup_db.py` to upload SQLite + CSV to Azure Blob. Use a container SAS with create/write only (`cw`, no delete/list). Old blobs are deleted by Azure lifecycle policy after 30 days.
+2. **PR review** (manual or ad hoc): use the web form `PRs` page or run `uv run python summary.py --prs`.
+
+The old Hermes memory PR update cron is no longer part of the primary workflow. PRs should come from SQLite-backed reports on demand.
 
 
 ## Open source trackers - best practices
@@ -204,5 +217,5 @@ Design implication: the DB remains the source of truth; Python owns parsing, val
 - Backfill older rows when schema rules change: `uv run python scripts/backfill_structured.py`
 - Keep the repo copyable as-is, with SQLite and env vars being enough to restore it
 - Skills belong in the repo. Runtime Hermes memory does not; it is agent state and is not part of the database backup.
-- After changing parser/normalizer, run `uv run pytest` — 99 tests should pass
+- After changing parser/normalizer/web form code, run `uv run pytest`
 - SQLite auto-ALTER in `ensure_db()` handles schema migration on startup; no manual DDL needed
