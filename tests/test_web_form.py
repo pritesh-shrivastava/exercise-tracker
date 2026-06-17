@@ -3,8 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-from tracker.core import ensure_db
-from web_form import (
+from scripts.web_form import (
     FormRow,
     consume_form_token,
     delete_form_row,
@@ -15,6 +14,7 @@ from web_form import (
     render_prs_page,
     update_form_row,
 )
+from tracker.core import ensure_db
 
 
 def test_form_row_normalizes_aliases() -> None:

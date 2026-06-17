@@ -11,25 +11,29 @@ import argparse
 import html
 import secrets
 import sqlite3
+import sys
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from tracker.core import ensure_db, now_ist
-from tracker.normalizer import normalize_exercise
-from tracker.parser import (
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from tracker.core import ensure_db, now_ist  # noqa: E402
+from tracker.models import (  # noqa: E402
     EQUIPMENT_VALUES,
     VALID_VARIATIONS,
     WorkoutRecord,
     format_details,
     validate_record,
 )
-from tracker.reports import format_prs_compact
+from tracker.normalizer import normalize_exercise  # noqa: E402
+from tracker.reports import format_prs_compact  # noqa: E402
 
-BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"
+DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
 
 EXERCISE_GROUPS = {

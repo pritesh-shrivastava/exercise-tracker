@@ -18,26 +18,26 @@ When the user says ANY of these in the context of the exercise tracker:
 
 ### Short summary (default)
 ```
-cd /home/azureuser/exercise-tracker && uv run python summary.py
+cd /home/azureuser/exercise-tracker && uv run python scripts/summary.py
 ```
 Returns: total entries, date range, breakdown by type, then recent activity with body-part labels and exercise names only (no sets, reps, weight, equipment, or details).
 
 ### PR summary (full)
 ```
-cd /home/azureuser/exercise-tracker && uv run python summary.py --prs
+cd /home/azureuser/exercise-tracker && uv run python scripts/summary.py --prs
 ```
 Returns: best set per exercise + variation, grouped by body part (Chest, Back, Shoulders, Biceps, Triceps, Legs, Core, Other).
 
 ### Output delivery rule
 
-**Deliver raw command output verbatim.** When the user asks for PRs, summary, or stats, paste the raw `summary.py` output directly. Do NOT convert to markdown tables, bullet lists, or add commentary. The user wants to see the exact shell output. Use a code block (` ``` `). Only summarize or analyze if the user explicitly asks "what do you think?" or "analyze this."
+**Deliver raw command output verbatim.** When the user asks for PRs, summary, or stats, paste the raw `scripts/summary.py` output directly. Do NOT convert to markdown tables, bullet lists, or add commentary. The user wants to see the exact shell output. Use a code block (` ``` `). Only summarize or analyze if the user explicitly asks "what do you think?" or "analyze this."
 
-This applies to ALL summary commands: `uv run python summary.py`, `uv run python summary.py --prs`, and any future summary variants.
+This applies to ALL summary commands: `uv run python scripts/summary.py`, `uv run python scripts/summary.py --prs`, and any future summary variants.
 
 
 ## Pitfalls
 
-- `summary.py` shows the last 5 recent days only (body-part label + exercise names) — not a weekly breakdown. For weekly volume, query the DB directly or extend `fetch_recent_activity()` in `tracker/core.py`.
+- `scripts/summary.py` shows the last 5 recent days only (body-part label + exercise names) — not a weekly breakdown. For weekly volume, query the DB directly or extend `fetch_recent_activity()` in `tracker/core.py`.
 - `pr_summary.py` ranks by weight first, then reps, then sets. High-rep low-weight entries may not surface as PRs even if they represent progress.
 - **PR date shows earliest achievement, not most recent.** When weight and reps are tied across multiple sessions, the PR date is the FIRST time you hit that weight/reps combo — not the latest. If a PR date looks suspiciously recent when you know you've hit that weight before, the tiebreaker may be wrong; check `tracker/reports.py` `_best_sets()` for the `_neg_date` logic.
 - `default` variations are hidden in summary output; `flat`, `incline`, `decline` are shown explicitly for bench press.
@@ -45,13 +45,13 @@ This applies to ALL summary commands: `uv run python summary.py`, `uv run python
 
 ## Web form PRs
 
-The private web form has a `PRs` page that renders the same DB-backed report path as `summary.py --prs`. Use that page for routine phone review. Use this skill when the user asks for PRs or summaries in Telegram.
+The private web form has a `PRs` page that renders the same DB-backed report path as `scripts/summary.py --prs`. Use that page for routine phone review. Use this skill when the user asks for PRs or summaries in Telegram.
 
 Do not answer PR questions from Hermes memory. Runtime memory is not the source of truth and is no longer maintained by a weekly PR cron. Always use SQLite-backed output.
 
 ## Pitfalls
 
-- **Emoji-heavy output may not render on Telegram.** `summary.py --prs` uses emoji body-part labels (🩻🧱🧢💪🔻🦵⚡). If the user says they can't see the output or asks for it again, DO NOT resend the raw emoji output. Instead, reformat without emojis using plain section headers (`### Chest`, `### Back`, etc.) inside a code block. The user prefers to see the data, not the emoji. If the raw output rendered fine on your end but the user still says \"Cant see\", trust them — strip and reformat.
+- **Emoji-heavy output may not render on Telegram.** `scripts/summary.py --prs` uses emoji body-part labels (🩻🧱🧢💪🔻🦵⚡). If the user says they can't see the output or asks for it again, DO NOT resend the raw emoji output. Instead, reformat without emojis using plain section headers (`### Chest`, `### Back`, etc.) inside a code block. The user prefers to see the data, not the emoji. If the raw output rendered fine on your end but the user still says \"Cant see\", trust them — strip and reformat.
 
 - **When showing PRs, always deliver raw command output verbatim in code blocks without any summary, conversion to tables, or commentary unless explicitly requested by the user.**
 

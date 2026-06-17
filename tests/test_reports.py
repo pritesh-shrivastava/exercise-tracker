@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tracker.core import ensure_db, insert_lines
-from tracker.parser import classify_lines, infer_equipment
+from tracker.core import ensure_db
 from tracker.reports import (
     _fmt_date,
     body_part,
@@ -53,55 +52,6 @@ def _insert_strength(
             ),
         )
         conn.commit()
-
-# --- Parser structured output tests ---
-
-def test_parser_sets_reps():
-    recs = classify_lines("bench 3x5 @ 80kg")
-    assert recs[0].sets == 3
-    assert recs[0].reps == 5
-
-
-def test_parser_weight_kg():
-    recs = classify_lines("bench 3x5 @ 80kg")
-    assert recs[0].weight_kg == 80.0
-
-
-def test_parser_weight_decimal():
-    recs = classify_lines("bench 3x10 @ 7.5kg")
-    assert recs[0].weight_kg == 7.5
-
-
-def test_parser_weight_sum():
-    recs = classify_lines("Dumbell shrugs - 3 x 12 with 10 + 10 kg")
-    assert recs[0].weight_kg == 20.0  # 10kg per dumbbell = 20 total
-    assert recs[0].per_hand is True
-
-
-def test_parser_weight_missing():
-    recs = classify_lines("pullups 3x10")
-    assert recs[0].weight_kg is None
-
-
-# --- Equipment classification tests ---
-
-@pytest.mark.parametrize("exercise,raw,expected", [
-    ("Dumbbell Shoulder Press", "dumbbell press", "dumbbells"),
-    ("Bodyweight Abs Crunch", "bodyweight crunch", "bodyweight"),
-    ("Cable Rope Upright Row", "cable row", "cable"),
-    ("Barbell Bench Press", "barbell bench", "barbell"),
-    ("Chest Press Vertical", "chest press vertical", "machine"),
-    ("Pec Fly", "pec fly", "machine"),
-    ("Rear Delt Fly", "rear delt fly", "machine"),
-    ("Leg Press", "leg press", "machine"),
-    ("Face Pull", "face pull", "machine"),
-    ("Bicep Curl", "bicep curl", "other"),
-    ("Kettlebell Swing", "kettlebell swing", "kettlebell"),
-    ("Kettlebell Swing", "kettleball swing", "kettlebell"),
-])
-def test_infer_equipment(exercise, raw, expected):
-    assert infer_equipment(exercise, raw) == expected
-
 
 # --- Body part classification ---
 
@@ -170,7 +120,18 @@ def test_format_prs_empty_db(tmp_path: Path):
 
 def test_format_prs_shows_exercise(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "bench 3x5 @ 80kg")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        variation="flat",
+        details="3x5 @ 80kg",
+        sets=3,
+        reps=5,
+        weight_kg=80,
+        equipment="dumbbells",
+        per_hand=True,
+    )
     result = format_prs(db)
     assert "Bench Press" in result or "bench" in result.lower()
     assert "80" in result
@@ -178,8 +139,30 @@ def test_format_prs_shows_exercise(tmp_path: Path):
 
 def test_format_prs_picks_best_weight(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "bench 3x5 @ 70kg")
-    insert_lines(db, "bench 3x5 @ 80kg")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        details="3x5 @ 70kg",
+        sets=3,
+        reps=5,
+        weight_kg=70,
+        variation="flat",
+        equipment="dumbbells",
+        per_hand=True,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-01-02",
+        exercise="Dumbbell Bench Press",
+        details="3x5 @ 80kg",
+        sets=3,
+        reps=5,
+        weight_kg=80,
+        variation="flat",
+        equipment="dumbbells",
+        per_hand=True,
+    )
     result = format_prs(db)
     assert "80" in result
     assert "70" not in result
@@ -187,7 +170,28 @@ def test_format_prs_picks_best_weight(tmp_path: Path):
 
 def test_format_prs_groups_by_body_part(tmp_path):
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "bench press 3x5 @ 80kg\nsquats 3x5 @ 100kg")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        details="3x5 @ 80kg",
+        sets=3,
+        reps=5,
+        weight_kg=80,
+        variation="flat",
+        equipment="dumbbells",
+        per_hand=True,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Barbell Squat",
+        details="3x5 @ 100kg",
+        sets=3,
+        reps=5,
+        weight_kg=100,
+        equipment="barbell",
+    )
     result = format_prs(db)
     assert "🩻" in result  # Chest
     assert "🦵" in result  # Legs
@@ -196,8 +200,30 @@ def test_format_prs_groups_by_body_part(tmp_path):
 def test_format_prs_picks_highest_weight_from_structured(tmp_path: Path):
     """New PR logic uses weight_kg column directly, not parsed details string."""
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "bench 3x5 @ 70kg")
-    insert_lines(db, "bench 3x5 @ 80kg")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        details="3x5 @ 70kg",
+        sets=3,
+        reps=5,
+        weight_kg=70,
+        variation="flat",
+        equipment="dumbbells",
+        per_hand=True,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-01-02",
+        exercise="Dumbbell Bench Press",
+        details="3x5 @ 80kg",
+        sets=3,
+        reps=5,
+        weight_kg=80,
+        variation="flat",
+        equipment="dumbbells",
+        per_hand=True,
+    )
     result = format_prs(db)
     assert "80" in result
     assert "70" not in result, "Lower weight should not appear in PRs"
@@ -205,8 +231,24 @@ def test_format_prs_picks_highest_weight_from_structured(tmp_path: Path):
 
 def test_format_prs_picks_lowest_assistance_weight(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "assisted dips 3x8 @ 40kg")
-    insert_lines(db, "assisted dips 2x15 @ 35kg")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Assisted Dips",
+        details="3x8 @ 40kg",
+        sets=3,
+        reps=8,
+        weight_kg=40,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-01-02",
+        exercise="Assisted Dips",
+        details="2x15 @ 35kg",
+        sets=2,
+        reps=15,
+        weight_kg=35,
+    )
 
     result = format_prs(db)
 
@@ -218,8 +260,25 @@ def test_format_prs_picks_lowest_assistance_weight(tmp_path: Path):
 def test_format_prs_splits_variations_with_different_weight(tmp_path: Path):
     """Variations of one exercise with different PR weights get separate lines."""
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "Lat pull down 3x15 @ 35kg")  # default
-    insert_lines(db, "Lat pull down 3x15 @ 31kg with short grip")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Lat Pull Down",
+        details="3x15 @ 35kg",
+        sets=3,
+        reps=15,
+        weight_kg=35,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-01-02",
+        exercise="Lat Pull Down",
+        details="3x15 @ 31kg",
+        sets=3,
+        reps=15,
+        weight_kg=31,
+        variation="short grip",
+    )
     result = format_prs(db)
     lat_lines = [ln for ln in result.splitlines() if "Lat Pull Down" in ln]
     assert len(lat_lines) == 2, f"expected default + short grip as separate lines, got: {lat_lines}"
@@ -230,8 +289,26 @@ def test_format_prs_splits_variations_with_different_weight(tmp_path: Path):
 def test_format_prs_clubs_same_weight_variations(tmp_path: Path):
     """Variations sharing the same PR weight stay clubbed on one line."""
     db = tmp_path / "workouts.sqlite"
-    insert_lines(db, "Lat pull down 3x15 @ 31kg with short grip")
-    insert_lines(db, "Lat pull down 3x15 @ 31kg with wide grip")
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Lat Pull Down",
+        details="3x15 @ 31kg",
+        sets=3,
+        reps=15,
+        weight_kg=31,
+        variation="short grip",
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-01-02",
+        exercise="Lat Pull Down",
+        details="3x15 @ 31kg",
+        sets=3,
+        reps=15,
+        weight_kg=31,
+        variation="wide grip",
+    )
     result = format_prs(db)
     lat_lines = [ln for ln in result.splitlines() if "Lat Pull Down" in ln]
     assert len(lat_lines) == 1, f"same-weight variations should club into one line, got: {lat_lines}"

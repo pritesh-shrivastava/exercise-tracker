@@ -3,7 +3,7 @@
 
 Run after schema migration to populate all old rows.
 
-For equipment inference, this matches the logic in tracker.parser.infer_equipment.
+For equipment inference, this preserves the old free-text logging inference rules.
 For weight_kg: converts per-hand weights to total for dumbbells.
 """
 
@@ -36,7 +36,7 @@ def parse_weight_str(details: str) -> float | None:
 
 
 def infer_equipment(exercise: str, raw_text: str) -> str:
-    """Match the parser.infer_equipment logic."""
+    """Infer equipment for legacy rows from exercise and raw text."""
     combined = f"{exercise} {raw_text}".lower()
     if "bodyweight" in combined or combined.strip().startswith("bodyweight"):
         return "bodyweight"

@@ -43,4 +43,4 @@ az storage blob download \
   --auth-mode login
 
 echo "Restored. Verifying..."
-uv run python summary.py
+uv run python scripts/summary.py

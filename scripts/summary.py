@@ -2,20 +2,24 @@
 """Workout summary and PR report.
 
 Usage:
-  python summary.py       # recent activity (last 5 entries)
-  python summary.py --prs # personal records by body part
+  python scripts/summary.py       # recent activity (last 5 entries)
+  python scripts/summary.py --prs # personal records by body part
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from tracker.core import fetch_recent_activity, format_recent_activity
-from tracker.reports import format_prs_compact
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_DB = BASE_DIR / "data" / "workouts.sqlite"
+from tracker.core import fetch_recent_activity, format_recent_activity  # noqa: E402
+from tracker.reports import format_prs_compact  # noqa: E402
+
+DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 
 
 def main() -> int:

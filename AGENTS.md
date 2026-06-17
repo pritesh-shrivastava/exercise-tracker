@@ -1,17 +1,16 @@
 # exercise-tracker
 
-Personal workout tracker. Primary interface is the private mobile web form/PWA over Tailscale. Hermes Agent is a Telegram fallback and maintenance interface. Python + SQLite. No external runtime dependencies.
+Personal workout tracker. Primary interface is the private mobile web form/PWA over Tailscale. Hermes Agent is for summaries, PRs, backups, and DB inspection only. Python + SQLite. No external runtime dependencies.
 
 ## Quick commands
 
 ```bash
-uv run python log_workout.py "squats 3x5 @ 100kg"   # log a workout
-uv run python summary.py                              # recent activity
-uv run python summary.py --prs                        # personal records (compact, one line per exercise)
-uv run python web_form.py --host "$(tailscale ip -4)"  # private mobile form over Tailscale
+uv run python scripts/summary.py                           # recent activity
+uv run python scripts/summary.py --prs                     # personal records (compact, one line per exercise)
+uv run python scripts/web_form.py --host "$(tailscale ip -4)"  # private mobile form over Tailscale
 uv run pytest                                         # run tests
 uv run ruff check .                                   # lint
-uv run mypy tracker/ summary.py log_workout.py web_form.py  # type check
+uv run mypy tracker/ scripts/summary.py scripts/web_form.py  # type check
 uv run vulture tracker/ tests/ *.py                   # dead code check
 uv run python scripts/backfill_structured.py           # backfill structured columns after schema change
 sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
@@ -20,13 +19,10 @@ sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 ## Project structure
 
 ```
-tracker/          — core library (parser, normalizer, core DB helpers, PR reports)
-scripts/          — utilities (backfill_structured.py, backup_db.py, restore_db.sh)
-tests/            — pytest suite (test_parser.py, test_normalizer.py, test_reports.py)
-skills/           — Hermes agent SKILL.md definitions (log-workout, workout-summary, backup-db, query-db)
-log_workout.py    — CLI entry point for logging
-summary.py        — CLI entry point for summaries and PRs
-web_form.py       — private stdlib mobile web form: Log, Today, PRs
+tracker/          — core library (models, normalizer, core DB helpers, PR reports)
+scripts/          — entry points and utilities (summary.py, web_form.py, backfill_structured.py, backup_db.py, restore_db.sh)
+tests/            — pytest suite (test_normalizer.py, test_reports.py, test_web_form.py)
+skills/           — Hermes agent SKILL.md definitions (workout-summary, backup-db, query-db)
 query_db.py       — does not exist; use `sqlite3 data/workouts.sqlite` directly
 design.md         — data model, variation rules, logging behaviour
 ```
@@ -38,24 +34,22 @@ design.md         — data model, variation rules, logging behaviour
 - **14 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand
 - **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
-- **Network access**: serve `web_form.py` only on localhost or the VPS Tailscale IP; do not expose it publicly without auth
+- **Network access**: serve `scripts/web_form.py` only on localhost or the VPS Tailscale IP; do not expose it publicly without auth
 
 ## Skill routing
 
-When the user's request matches an available exercise-tracker skill, invoke it via the skill tool. Prefer the web form for daily structured logging; use Hermes for fallback chat logging, summaries, PRs, backups, and raw DB inspection:
+When the user's request matches an available exercise-tracker skill, invoke it via the skill tool. Workout data entry is form-only; use Hermes for summaries, PRs, backups, and raw DB inspection:
 
-- User pastes workout lines → load `log-workout` skill as fallback logging
+- User pastes workout lines → do not log them; direct them to the private form URL
 - User asks for summary, PRs, stats → load `workout-summary` skill
 - User asks for backup or database save → load `backup-db` skill
 - User asks to see the table, DB, rows, browse data, top N, last N → load `query-db` skill
 
-Do not use sub-agents for workout logging, workout updates, or DB queries. Logging is
-stateful and must stay in the active Health conversation buffer. Sub-agents may only
-be used for code fixes or audits, never for mutating `data/workouts.sqlite`.
+Do not use sub-agents for workout updates or DB queries. Sub-agents may only be used for code fixes or audits, never for mutating `data/workouts.sqlite`.
 
 ## Health Stack
 
-- typecheck: uv run mypy tracker/ summary.py log_workout.py web_form.py
+- typecheck: uv run mypy tracker/ scripts/summary.py scripts/web_form.py
 - lint: uv run ruff check .
 - test: uv run pytest
 - deadcode: uv run vulture tracker/ tests/ *.py

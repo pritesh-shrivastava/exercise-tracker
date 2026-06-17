@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from tracker.parser import WorkoutRecord, classify_lines, format_details, validate_record
 from tracker.reports import body_part
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -92,40 +91,6 @@ def ensure_db(db_path: Path) -> None:
         END
         """)
         conn.commit()
-
-
-def insert_lines(db_path: Path, text: str, source: str = "manual") -> int:
-    ensure_db(db_path)
-    ts = now_ist()
-    now = ts.isoformat()
-    workout_date = ts.date().isoformat()
-    rows = []
-    for rec in classify_lines(text):
-        if not isinstance(rec, WorkoutRecord):
-            continue
-        validate_record(rec)
-        details = format_details(rec.sets, rec.reps, rec.weight_kg)
-        rows.append((
-            now, workout_date, rec.workout_type, rec.exercise, rec.variation,
-            details, rec.raw_text, source,
-            rec.sets, rec.reps, rec.weight_kg, rec.equipment, rec.per_hand,
-        ))
-
-    if not rows:
-        return 0
-
-    with sqlite3.connect(db_path) as conn:
-        conn.executemany(
-            """
-            INSERT INTO workouts
-            (logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source,
-             sets, reps, weight_kg, equipment, per_hand)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
-        conn.commit()
-    return len(rows)
 
 
 def fetch_recent_activity(db_path: Path, recent_limit: int = 5) -> dict:
