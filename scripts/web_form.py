@@ -640,6 +640,13 @@ def render_prs_page(db_path: Path) -> str:
     return _layout("PRs", f"<h1>PRs</h1><pre>{_escape(report)}</pre>")
 
 
+def normalize_bind_host(host: str) -> str:
+    bind_host = host.strip()
+    if not bind_host:
+        raise ValueError("--host resolved to an empty value; install/configure Tailscale or use --host 127.0.0.1")
+    return bind_host
+
+
 class WorkoutFormHandler(BaseHTTPRequestHandler):
     db_path = DEFAULT_DB
 
@@ -709,10 +716,14 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8765, help="Port to bind")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="Path to SQLite database")
     args = parser.parse_args()
+    try:
+        host = normalize_bind_host(args.host)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     handler = type("ConfiguredWorkoutFormHandler", (WorkoutFormHandler,), {"db_path": Path(args.db)})
-    server = ThreadingHTTPServer((args.host, args.port), handler)
-    print(f"Workout form running at http://{args.host}:{args.port}/log")
+    server = ThreadingHTTPServer((host, args.port), handler)
+    print(f"Workout form running at http://{host}:{args.port}/log")
     server.serve_forever()
     return 0
 

@@ -25,4 +25,4 @@ strict = false
 ignore_missing_imports = true
 
 [tool.vulture]
-ignore_names = ["normalize", "row_factory"]
+ignore_names = ["do_GET", "do_POST", "normalize", "row_factory"]

@@ -2,7 +2,7 @@
 
 A small, portable workout tracker for a private VPS.
 
-The primary workflow is a small mobile web form/PWA-style interface served from the VPS and opened from your phone over Tailscale. The app writes directly to a local SQLite database and re-reads inserted rows before confirming saves. Telegram/Hermes is only for summaries, PRs, backups, and DB inspection; workout data entry is form-only.
+The primary workflow is a small mobile web form served from the VPS and opened from your phone over Tailscale. The app writes directly to a local SQLite database and re-reads inserted rows before confirming saves. Telegram/Hermes is only for summaries, PRs, backups, and DB inspection; workout data entry is form-only.
 
 ## Folder layout
 
@@ -21,6 +21,7 @@ tests/
 scripts/
   summary.py                 — quick stats (default) or PRs (--prs)
   web_form.py                — stdlib mobile web form: Log, Today, PRs
+  exercise-web-form.service  — systemd unit for always-on localhost form server
   backfill_structured.py     — one-off backfill of structured columns (sets, reps, weight_kg, etc.)
   backup_db.py               — Azure Blob backup implementation (SQLite + CSV upload only)
   azure_lifecycle_policy_30d.json — Azure policy deleting workout backup blobs after 30 days
@@ -44,15 +45,35 @@ uv run python scripts/web_form.py         # mobile web form at http://127.0.0.1:
 
 ## Mobile web workflow
 
-Run the form on the VPS and keep it private to your tailnet:
+The preferred always-on setup runs the Python form on localhost under systemd, then exposes it privately inside the tailnet with Tailscale Serve:
 
 ```bash
 cd /home/azureuser/exercise-tracker
-TAILSCALE_IP=$(tailscale ip -4)
-uv run python scripts/web_form.py --host "$TAILSCALE_IP" --port 8765
+sudo cp scripts/exercise-web-form.service /etc/systemd/system/exercise-web-form.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now exercise-web-form.service
+sudo tailscale serve --bg --http=8765 localhost:8765
 ```
 
-Open `http://<tailscale-ip>:8765/log` from your phone while connected to Tailscale.
+Open the tailnet-only URL from a Tailscale-connected phone or laptop:
+
+```text
+http://azure-vps.tail5d90bf.ts.net:8765/log
+```
+
+Useful checks:
+
+```bash
+systemctl status exercise-web-form.service --no-pager
+tailscale serve status
+curl http://127.0.0.1:8765/log
+```
+
+If `tailscale` is not installed or not logged in, Tailscale Serve cannot expose the form. Install/configure Tailscale first, or run the form for local-only use:
+
+```bash
+uv run python scripts/web_form.py --host 127.0.0.1 --port 8765
+```
 
 Do not bind this app to a public VPS interface unless you add real authentication in front of it. The stdlib web form intentionally has no public-internet auth layer; Tailscale is the access control boundary.
 
@@ -123,7 +144,7 @@ The `skills/` folder teaches Hermes the procedures for this tracker. Each skill 
 
 ```
 skills/
-  workout-summary/  — tiered summary: recent entries, weekly volume, PRs
+  workout-summary/  — tiered summary: recent entries and PRs
   backup-db/        — SQLite + CSV upload to Azure Blob; 30-day retention via Azure lifecycle policy
   query-db/         — show raw table rows, excluding id/raw_text/details
 ```
@@ -139,6 +160,7 @@ Hermes runtime memory lives outside this repo at `~/.hermes/memories/MEMORY.md` 
 uv run pytest
 uv run ruff check .      # lint
 uv run mypy tracker/ scripts/summary.py scripts/web_form.py  # type check
+uv run vulture tracker/ tests/ scripts/summary.py scripts/web_form.py  # dead code check
 ```
 
 After schema changes: `uv run python scripts/backfill_structured.py`

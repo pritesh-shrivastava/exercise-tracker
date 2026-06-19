@@ -1,0 +1,18 @@
+[Unit]
+Description=Exercise Tracker private web form
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=azureuser
+Group=azureuser
+WorkingDirectory=/home/azureuser/exercise-tracker
+Environment=HOME=/home/azureuser
+Environment=PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/azureuser/.local/bin/uv run python scripts/web_form.py --host 127.0.0.1 --port 8765
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

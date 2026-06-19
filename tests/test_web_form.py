@@ -10,6 +10,7 @@ from scripts.web_form import (
     form_row_from_values,
     insert_form_rows,
     new_form_token,
+    normalize_bind_host,
     render_log_page,
     render_prs_page,
     update_form_row,
@@ -148,6 +149,15 @@ def test_form_token_is_single_use() -> None:
         assert "already submitted" in str(exc)
     else:
         raise AssertionError("token should not be reusable")
+
+
+def test_empty_bind_host_is_rejected() -> None:
+    try:
+        normalize_bind_host("  ")
+    except ValueError as exc:
+        assert "--host resolved to an empty value" in str(exc)
+    else:
+        raise AssertionError("empty host should be rejected")
 
 
 def test_render_prs_page_uses_report_path(tmp_path: Path) -> None:

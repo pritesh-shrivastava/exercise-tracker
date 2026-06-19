@@ -86,9 +86,9 @@ The form writes one structured strength row per submitted row. If a session incl
 - `Today` — DB-backed list of today's strength rows with exact row selection for corrections and deletes.
 - `PRs` — renders the same report path as `scripts/summary.py --prs`.
 
-The form writes directly to `data/workouts.sqlite`, then re-queries inserted or edited rows before showing a saved/updated/deleted confirmation. A user-facing confirmation is only valid after both the SQLite write and the post-write read succeed.
+The form writes directly to `data/workouts.sqlite`, then re-queries inserted or edited rows before showing a saved/updated confirmation. Deletes first read the exact row being deleted, then show that row only after the delete succeeds. A user-facing confirmation is only valid after the SQLite write succeeds and the displayed row data comes from SQLite.
 
-The web form has no public-internet authentication layer. Serve it only on `127.0.0.1` for local use or on the VPS Tailscale IP for phone access over the private tailnet. Do not bind it to a public VPS interface unless a real auth proxy is added.
+The web form has no public-internet authentication layer. The preferred deployment runs `scripts/web_form.py` on `127.0.0.1:8765` under `exercise-web-form.service`, then uses Tailscale Serve to expose `localhost:8765` inside the tailnet. Do not bind it to a public VPS interface unless a real auth proxy is added.
 
 ## Summary behaviour
 

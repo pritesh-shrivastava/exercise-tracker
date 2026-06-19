@@ -1,17 +1,17 @@
 # exercise-tracker
 
-Personal workout tracker. Primary interface is the private mobile web form/PWA over Tailscale. Hermes Agent is for summaries, PRs, backups, and DB inspection only. Python + SQLite. No external runtime dependencies.
+Personal workout tracker. Primary interface is the private mobile web form over Tailscale. Hermes Agent is for summaries, PRs, backups, and DB inspection only. Python + SQLite. No external runtime dependencies.
 
 ## Quick commands
 
 ```bash
 uv run python scripts/summary.py                           # recent activity
 uv run python scripts/summary.py --prs                     # personal records (compact, one line per exercise)
-uv run python scripts/web_form.py --host "$(tailscale ip -4)"  # private mobile form over Tailscale
+uv run python scripts/web_form.py --host 127.0.0.1  # local form; production uses systemd + Tailscale Serve
 uv run pytest                                         # run tests
 uv run ruff check .                                   # lint
 uv run mypy tracker/ scripts/summary.py scripts/web_form.py  # type check
-uv run vulture tracker/ tests/ *.py                   # dead code check
+uv run vulture tracker/ tests/ scripts/summary.py scripts/web_form.py  # dead code check
 uv run python scripts/backfill_structured.py           # backfill structured columns after schema change
 sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 ```
@@ -34,7 +34,7 @@ design.md         — data model, variation rules, logging behaviour
 - **14 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand
 - **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
-- **Network access**: serve `scripts/web_form.py` only on localhost or the VPS Tailscale IP; do not expose it publicly without auth
+- **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
 
 ## Skill routing
 
@@ -52,7 +52,7 @@ Do not use sub-agents for workout updates or DB queries. Sub-agents may only be 
 - typecheck: uv run mypy tracker/ scripts/summary.py scripts/web_form.py
 - lint: uv run ruff check .
 - test: uv run pytest
-- deadcode: uv run vulture tracker/ tests/ *.py
+- deadcode: uv run vulture tracker/ tests/ scripts/summary.py scripts/web_form.py
 
 ## Canonical exercise names (normalizer)
 
