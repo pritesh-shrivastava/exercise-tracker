@@ -84,13 +84,17 @@ def test_rear_delt_in_raw():
 @pytest.mark.parametrize("exercise,expected", [
     ("shoulder press", "Dumbbell Shoulder Press"),
     ("bicep curl", "Dumbbell Bicep Curl"),
+    ("hammer curl", "Dumbbell Hammer Curl"),
+    ("dumbbell hammer curl", "Dumbbell Hammer Curl"),
     ("bicep curl on cable", "Bicep Curl on Cable"),
     ("bicep preacher curl", "Bicep Preacher Curl"),
+    ("preacher curl", "Bicep Preacher Curl"),
     ("reverse curl on cable", "Reverse Curl on Cable"),
     ("seated row", "Chest Supported Rows"),
     ("horizontal rows", "Chest Supported Rows"),
     ("seated row machine", "Seated Row Machine"),
     ("horizontal leg press", "Horizontal Leg Press"),
+    ("barbell incline press", "Barbell Bench Press"),
     ("vertical chest press", "Vertical Chest Press Machine"),
     ("vertical chest press machine", "Vertical Chest Press Machine"),
     ("chest press vertical", "Chest Press Vertical"),
@@ -117,6 +121,8 @@ def test_rear_delt_in_raw():
     ("kettleball swing", "Kettlebell Swing"),
     ("kettle bell swing", "Kettlebell Swing"),
     ("kettlebell swing", "Kettlebell Swing"),
+    ("deadlift", "Barbell Deadlift"),
+    ("barbell deadlift", "Barbell Deadlift"),
 ])
 def test_canonical(exercise, expected):
     assert normalize_exercise(exercise, "") == expected

@@ -57,12 +57,13 @@ def _insert_strength(
 
 @pytest.mark.parametrize("exercise,expected", [
     ("Bench Press", "Chest"),
-    ("Barbell Incline Press", "Chest"),
+    ("Barbell Bench Press", "Chest"),
     ("Dumbbell Incline Press", "Chest"),
     ("Machine Incline Press", "Chest"),
     ("Pec Fly", "Chest"),
     ("Lat Pull Down", "Back"),
     ("Seated Row", "Back"),
+    ("Barbell Deadlift", "Back"),
     ("Shoulder Press", "Shoulders"),
     ("Lateral Raise", "Shoulders"),
     ("Rear Delt Fly", "Shoulders"),

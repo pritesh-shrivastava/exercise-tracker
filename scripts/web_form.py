@@ -13,6 +13,7 @@ import secrets
 import sqlite3
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -31,24 +32,14 @@ from tracker.models import (  # noqa: E402
     validate_record,
 )
 from tracker.normalizer import normalize_exercise  # noqa: E402
-from tracker.reports import format_prs_compact  # noqa: E402
+from tracker.reports import BODY_PART_ORDER, pr_display_rows  # noqa: E402
 
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
 
 EXERCISE_GROUPS = {
-    "Recent": [
-        "Bodyweight Squat",
-        "Bodyweight Calf Raise",
-        "45 Degree Leg Press",
-        "Hamstring Curl",
-        "Hip Thrust",
-        "Kettlebell Swing",
-        "Sumo Squat",
-    ],
     "Chest": [
         "Barbell Bench Press",
-        "Barbell Incline Press",
         "Dumbbell Bench Press",
         "Dumbbell Pec Fly",
         "Pec Fly",
@@ -59,6 +50,7 @@ EXERCISE_GROUPS = {
         "45 Degree T Bar Row",
         "Assisted Pull Up",
         "Back Extension",
+        "Barbell Deadlift",
         "Chest Supported Rows",
         "Compound Row Machine",
         "Dumbbell Rows",
@@ -75,19 +67,19 @@ EXERCISE_GROUPS = {
         "Lateral Raise",
         "Rear Delt Fly",
     ],
-    "Arms": [
-        "Assisted Dips",
+    "Biceps": [
         "Barbell Curl",
         "Bicep Curl on Cable",
         "Bicep Preacher Curl",
-        "Cable Overhead Tricep Extension",
         "Dumbbell Bicep Curl",
         "Dumbbell Hammer Curl",
-        "Dumbbell Overhead Tricep Extension",
-        "Hammer Curl",
         "Hammer Curl on Cable",
-        "Preacher Curl",
         "Reverse Curl on Cable",
+    ],
+    "Triceps": [
+        "Assisted Dips",
+        "Cable Overhead Tricep Extension",
+        "Dumbbell Overhead Tricep Extension",
         "Tricep Pushdown",
     ],
     "Legs": [
@@ -121,9 +113,10 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Assisted Pull Up": "machine",
     "Barbell Bench Press": "barbell",
     "Barbell Curl": "barbell",
-    "Barbell Incline Press": "barbell",
+    "Barbell Deadlift": "barbell",
     "Barbell Squat": "barbell",
     "Bicep Curl on Cable": "cable",
+    "Bicep Preacher Curl": "machine",
     "Bodyweight Abs Crunch": "bodyweight",
     "Bodyweight Calf Raise": "bodyweight",
     "Bodyweight Squat": "bodyweight",
@@ -150,7 +143,6 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Lat Pull Down": "machine",
     "Lateral Raise": "dumbbells",
     "Pec Fly": "machine",
-    "Preacher Curl": "machine",
     "Push Up": "bodyweight",
     "Rear Delt Fly": "machine",
     "Reverse Curl on Cable": "cable",
@@ -159,9 +151,30 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Situps": "bodyweight",
     "Tricep Pushdown": "cable",
     "Vertical Chest Press Machine": "machine",
+    "Weighted Lunge": "dumbbells",
 }
+EXERCISE_DEFAULT_PER_HAND = frozenset({
+    "Dumbbell Arnold Press",
+    "Dumbbell Bench Press",
+    "Dumbbell Bicep Curl",
+    "Dumbbell Hammer Curl",
+    "Dumbbell Pec Fly",
+    "Dumbbell Rows",
+    "Dumbbell Shoulder Press",
+    "Dumbbell Shrugs",
+    "Front Raise",
+    "Lateral Raise",
+    "Weighted Lunge",
+})
 
 VARIATION_CHOICES = ["default", "flat", "incline", "decline", "short grip", "wide grip"]
+BODY_FOCUS_CHOICES = [
+    ("", "blank"),
+    ("Back,Biceps", "Back + Biceps"),
+    ("Chest,Triceps", "Chest + Triceps"),
+    ("Legs", "Legs"),
+    ("Shoulders,Core", "Shoulders + Abs"),
+]
 EQUIPMENT_CHOICES = [
     "",
     "bodyweight",
@@ -174,6 +187,7 @@ EQUIPMENT_CHOICES = [
     "band",
     "other",
 ]
+LOG_ROW_COUNT = 6
 
 
 @dataclass(frozen=True)
@@ -225,9 +239,16 @@ def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow
 
     exercise = normalize_exercise(exercise_raw, exercise_raw)
     variation = values.get(f"{prefix}variation", "default").strip() or "default"
+    if variation == "default" and exercise == "Barbell Bench Press" and "incline" in exercise_raw.lower():
+        variation = "incline"
     equipment = values.get(f"{prefix}equipment", "").strip()
     if not equipment:
         equipment = EXERCISE_DEFAULT_EQUIPMENT.get(exercise, "")
+    per_hand_key = f"{prefix}per_hand"
+    per_hand_defaulted_key = f"{prefix}per_hand_defaulted"
+    per_hand = values.get(per_hand_key, "") == "1"
+    if not per_hand and per_hand_key not in values and values.get(per_hand_defaulted_key, "") == "1":
+        per_hand = exercise in EXERCISE_DEFAULT_PER_HAND
     row = FormRow(
         workout_date=workout_date,
         exercise=exercise,
@@ -236,7 +257,7 @@ def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow
         reps=_parse_int(values.get(f"{prefix}reps", "").strip(), "reps"),
         weight_kg=_parse_weight(values.get(f"{prefix}weight_kg", "")),
         equipment=equipment,
-        per_hand=values.get(f"{prefix}per_hand", "") == "1",
+        per_hand=per_hand,
     )
     _validate_form_row(row)
     return row
@@ -378,6 +399,23 @@ def fetch_today_rows(db_path: Path, workout_date: str | None = None) -> list[sql
         ))
 
 
+def fetch_recent_rows(db_path: Path, limit: int = 10) -> list[sqlite3.Row]:
+    ensure_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        return list(conn.execute(
+            """
+            SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
+                   sets, reps, weight_kg, equipment, per_hand
+            FROM workouts
+            WHERE workout_type = 'strength'
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ))
+
+
 def _flatten_form(data: dict[str, list[str]]) -> dict[str, str]:
     return {key: values[-1] if values else "" for key, values in data.items()}
 
@@ -396,12 +434,17 @@ def consume_form_token(token: str) -> None:
 
 def _rows_from_post(data: dict[str, list[str]]) -> list[FormRow]:
     rows: list[FormRow] = []
-    for idx in range(1, 6):
+    flattened = _flatten_form(data)
+    shared_date = flattened.get("workout_date", "").strip()
+    for idx in range(1, LOG_ROW_COUNT + 1):
         prefix = f"r{idx}_"
         row_fields = ("exercise", "sets", "reps", "weight_kg")
         if not any(data.get(f"{prefix}{field}", [""])[-1].strip() for field in row_fields):
             continue
-        rows.append(form_row_from_values(_flatten_form(data), prefix=prefix))
+        values = dict(flattened)
+        if shared_date and not values.get(f"{prefix}workout_date"):
+            values[f"{prefix}workout_date"] = shared_date
+        rows.append(form_row_from_values(values, prefix=prefix))
     if not rows:
         raise ValueError("enter at least one workout row")
     return rows
@@ -467,6 +510,16 @@ def _layout(title: str, body: str) -> str:
     pre {{ overflow-x: auto; white-space: pre; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }}
     .notice {{ border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }}
     .error {{ border-color: #b91c1c; color: #b91c1c; }}
+    .pr-date {{
+      border-radius: 999px;
+      display: inline-block;
+      font-weight: 650;
+      min-width: 104px;
+      padding: 3px 8px;
+      text-align: center;
+    }}
+    .pr-date-fresh {{ background: #16a34a24; color: #15803d; }}
+    .pr-date-stale {{ background: #dc262624; color: #b91c1c; }}
     @media (max-width: 760px) {{
       .grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
       .exercise {{ grid-column: span 2; }}
@@ -477,25 +530,56 @@ def _layout(title: str, body: str) -> str:
     }}
   </style>
   <script>
+    function applyBodyFocus() {{
+      const focusSelect = document.querySelector('select[name="body_focus"]');
+      if (!focusSelect) return;
+      const priority = focusSelect && focusSelect.value ? focusSelect.value.split(',') : [];
+      document.querySelectorAll('select[data-exercise-select]').forEach((select) => {{
+        const blank = select.querySelector('option[value=""]');
+        const groups = Array.from(select.querySelectorAll('optgroup'));
+        groups.sort((a, b) => {{
+          const ai = priority.indexOf(a.label);
+          const bi = priority.indexOf(b.label);
+          if (ai !== -1 || bi !== -1) {{
+            if (ai === -1) return 1;
+            if (bi === -1) return -1;
+            return ai - bi;
+          }}
+          return Number(a.dataset.originalIndex) - Number(b.dataset.originalIndex);
+        }});
+        select.replaceChildren(blank, ...groups);
+      }});
+    }}
     function applyExerciseDefaults(select) {{
       const selected = select.options[select.selectedIndex];
       const row = select.closest('.grid');
       if (!selected || !row) return;
       const equipment = selected.dataset.equipment || '';
+      const perHand = selected.dataset.perHand === '1';
       const equipmentSelect = row.querySelector('select[name$="equipment"]');
       const weightInput = row.querySelector('input[name$="weight_kg"]');
+      const perHandInput = row.querySelector('input[name$="per_hand"]');
+      const perHandDefaultedInput = row.querySelector('input[name$="per_hand_defaulted"]');
       if (equipmentSelect && equipment) equipmentSelect.value = equipment;
       if (weightInput && equipment === 'bodyweight') weightInput.value = '';
+      if (perHandInput) perHandInput.checked = perHand;
+      if (perHandDefaultedInput) perHandDefaultedInput.value = perHand ? '1' : '0';
     }}
     document.addEventListener('change', (event) => {{
+      if (event.target.matches('select[name="body_focus"]')) {{
+        applyBodyFocus();
+      }}
       if (event.target.matches('select[data-exercise-select]')) {{
         applyExerciseDefaults(event.target);
       }}
     }});
+    document.addEventListener('DOMContentLoaded', applyBodyFocus);
   </script>
 </head>
 <body>
-  <header><nav><a href="/log">Log</a><a href="/today">Today</a><a href="/prs">PRs</a></nav></header>
+  <header>
+    <nav><a href="/log">Log</a><a href="/today">Today</a><a href="/recent">Recent</a><a href="/prs">PRs</a></nav>
+  </header>
   <main>{body}</main>
 </body>
 </html>"""
@@ -511,38 +595,59 @@ def _options(values: list[str], selected: str) -> str:
     )
 
 
+def _labelled_options(values: list[tuple[str, str]], selected: str) -> str:
+    return "\n".join(
+        (
+            f'<option value="{_escape(value)}"{" selected" if value == selected else ""}>'
+            f"{_escape(label)}</option>"
+        )
+        for value, label in values
+    )
+
+
 def _exercise_options(selected: str) -> str:
     parts = []
     seen: set[str] = set()
-    for group, exercises in EXERCISE_GROUPS.items():
+    for idx, (group, exercises) in enumerate(EXERCISE_GROUPS.items()):
         options = []
         for exercise in exercises:
             seen.add(exercise)
             equipment = EXERCISE_DEFAULT_EQUIPMENT.get(exercise, "")
             is_selected = " selected" if exercise == selected else ""
+            per_hand = "1" if exercise in EXERCISE_DEFAULT_PER_HAND else "0"
             options.append(
-                f'<option value="{_escape(exercise)}" data-equipment="{_escape(equipment)}"{is_selected}>'
+                f'<option value="{_escape(exercise)}" data-equipment="{_escape(equipment)}"'
+                f' data-per-hand="{per_hand}"{is_selected}>'
                 f"{_escape(exercise)}</option>"
             )
-        parts.append(f'<optgroup label="{_escape(group)}">{"".join(options)}</optgroup>')
+        parts.append(
+            f'<optgroup label="{_escape(group)}" data-original-index="{idx}">{"".join(options)}</optgroup>'
+        )
     if selected and selected not in seen:
         parts.insert(0, f'<option value="{_escape(selected)}" selected>{_escape(selected)}</option>')
     return '<option value=""></option>' + "".join(parts)
 
 
-def _row_fields(prefix: str, *, workout_date: str, row: sqlite3.Row | None = None) -> str:
+def _row_fields(prefix: str, *, workout_date: str, row: sqlite3.Row | None = None, include_date: bool = True) -> str:
     values: dict[str, Any] = dict(row) if row is not None else {}
     date_value = values.get("workout_date", workout_date)
     exercise = values.get("exercise", "")
     variation = values.get("variation", "default")
-    sets = values.get("sets", "")
-    reps = values.get("reps", "")
+    sets = values.get("sets", "") if row is not None else 3
+    reps = values.get("reps", "") if row is not None else 12
     weight = values.get("weight_kg", "")
     equipment = values.get("equipment", "") or EXERCISE_DEFAULT_EQUIPMENT.get(str(exercise), "")
-    checked = " checked" if values.get("per_hand", 0) else ""
+    default_per_hand = row is None and str(exercise) in EXERCISE_DEFAULT_PER_HAND
+    checked = " checked" if values.get("per_hand", 0) or default_per_hand else ""
+    defaulted = "1" if default_per_hand else "0"
+    date_field = (
+        f'<label>Date<input type="date" name="{prefix}workout_date" value="{_escape(date_value)}"></label>'
+        if include_date
+        else ""
+    )
     return f"""
 <div class="grid">
-  <label>Date<input type="date" name="{prefix}workout_date" value="{_escape(date_value)}"></label>
+  {date_field}
   <label class="exercise">Exercise
     <select name="{prefix}exercise" data-exercise-select>{_exercise_options(str(exercise))}</select>
   </label>
@@ -552,10 +657,11 @@ def _row_fields(prefix: str, *, workout_date: str, row: sqlite3.Row | None = Non
   <label>Weight kg<input inputmode="decimal" name="{prefix}weight_kg" value="{_escape(weight)}"></label>
   <label>Equipment<select name="{prefix}equipment">{_options(EQUIPMENT_CHOICES, str(equipment))}</select></label>
   <label class="check"><span>Per hand</span><input type="checkbox" name="{prefix}per_hand" value="1"{checked}></label>
+  <input type="hidden" name="{prefix}per_hand_defaulted" value="{defaulted}">
 </div>"""
 
 
-def _render_rows(rows: list[sqlite3.Row]) -> str:
+def _render_rows(rows: list[sqlite3.Row], *, include_id: bool = True) -> str:
     if not rows:
         return "<p>No rows.</p>"
     body = []
@@ -563,15 +669,17 @@ def _render_rows(rows: list[sqlite3.Row]) -> str:
         weight = "" if row["weight_kg"] is None else f'{row["weight_kg"]:g}'
         per_hand = "yes" if row["per_hand"] else ""
         variation = "" if row["variation"] == "default" else row["variation"]
+        id_cell = f"<td>{row['id']}</td>" if include_id else ""
         body.append(
             "<tr>"
-            f"<td>{row['id']}</td><td>{_escape(row['workout_date'])}</td><td>{_escape(row['exercise'])}</td>"
+            f"{id_cell}<td>{_escape(row['workout_date'])}</td><td>{_escape(row['exercise'])}</td>"
             f"<td>{_escape(variation)}</td><td>{row['sets']}×{row['reps']}</td><td>{_escape(weight)}</td>"
             f"<td>{_escape(row['equipment'])}</td><td>{per_hand}</td>"
             "</tr>"
         )
+    id_header = "<th>ID</th>" if include_id else ""
     return (
-        "<table><thead><tr><th>ID</th><th>Date</th><th>Exercise</th><th>Var</th><th>Sets</th>"
+        f"<table><thead><tr>{id_header}<th>Date</th><th>Exercise</th><th>Var</th><th>Sets</th>"
         "<th>Kg</th><th>Equip</th><th>Each</th></tr></thead><tbody>"
         + "".join(body)
         + "</tbody></table>"
@@ -585,14 +693,19 @@ def render_log_page(*, saved: list[sqlite3.Row] | None = None, error: str = "") 
     if saved is not None:
         notice = '<div class="notice">Saved after DB re-read.</div>' + _render_rows(saved)
     fieldsets = "\n".join(
-        f"<fieldset><legend>Row {idx}</legend>{_row_fields(f'r{idx}_', workout_date=today)}</fieldset>"
-        for idx in range(1, 6)
+        (
+            f"<fieldset><legend>Row {idx}</legend>"
+            f"{_row_fields(f'r{idx}_', workout_date=today, include_date=False)}</fieldset>"
+        )
+        for idx in range(1, LOG_ROW_COUNT + 1)
     )
     body = f"""
 <h1>Log Workout</h1>
 {notice}
 <form method="post" action="/log">
   <input type="hidden" name="token" value="{_escape(token)}">
+  <label>Workout date<input type="date" name="workout_date" value="{_escape(today)}"></label>
+  <label>Body part trained<select name="body_focus">{_labelled_options(BODY_FOCUS_CHOICES, "")}</select></label>
   {fieldsets}
   <button class="primary" type="submit">Save Rows</button>
 </form>"""
@@ -635,9 +748,79 @@ def render_today_page(
     return _layout("Today", body)
 
 
-def render_prs_page(db_path: Path) -> str:
-    report = format_prs_compact(db_path) if db_path.exists() else "No database yet."
-    return _layout("PRs", f"<h1>PRs</h1><pre>{_escape(report)}</pre>")
+def render_recent_page(db_path: Path) -> str:
+    rows = fetch_recent_rows(db_path)
+    body = f"""
+<h1>Recent</h1>
+{_render_rows(rows, include_id=False)}"""
+    return _layout("Recent", body)
+
+
+def render_prs_page(db_path: Path, *, selected_part: str = "") -> str:
+    if not db_path.exists():
+        return _layout("PRs", "<h1>PRs</h1><p>No database yet.</p>")
+
+    rows = pr_display_rows(db_path)
+    selected_part = selected_part if selected_part in BODY_PART_ORDER else ""
+    filter_form = _prs_filter_form(selected_part)
+    if selected_part:
+        rows = [row for row in rows if row.part == selected_part]
+    if not rows:
+        return _layout("PRs", f"<h1>PRs</h1>{filter_form}<p>No strength workouts logged yet.</p>")
+
+    sections = []
+    current_part = ""
+    section_rows: list[str] = []
+    for row in rows:
+        if row.part != current_part:
+            if section_rows:
+                sections.append(_prs_section(current_part, section_rows))
+            current_part = row.part
+            section_rows = []
+        section_rows.append(
+            "<tr>"
+            f"<td>{_escape(row.exercise)}</td>"
+            f"<td>{_escape(row.variation)}</td>"
+            f"<td>{_escape(row.performance)}</td>"
+            f"<td>{_pr_date_badge(row.pr_date)}</td>"
+            "</tr>"
+        )
+    if section_rows:
+        sections.append(_prs_section(current_part, section_rows))
+
+    return _layout("PRs", f"<h1>PRs</h1>{filter_form}{''.join(sections)}")
+
+
+def _prs_filter_form(selected_part: str) -> str:
+    options = [""] + BODY_PART_ORDER
+    return f"""
+<form method="get" action="/prs">
+  <label>Body part<select name="part" onchange="this.form.submit()">{_options(options, selected_part)}</select></label>
+</form>"""
+
+
+def _pr_date_badge(pr_date: str) -> str:
+    date_text = _escape(pr_date)
+    css_class = "pr-date-stale" if _pr_date_is_stale(pr_date) else "pr-date-fresh"
+    return f'<span class="pr-date {css_class}">{date_text}</span>'
+
+
+def _pr_date_is_stale(pr_date: str) -> bool:
+    try:
+        parsed = datetime.strptime(pr_date[2:], "%d %b %Y").date()
+    except ValueError:
+        return False
+    return (now_ist().date() - parsed).days > 30
+
+
+def _prs_section(part: str, rows: list[str]) -> str:
+    return (
+        f"<h2>{_escape(part)}</h2>"
+        "<table><thead><tr><th>Exercise</th><th>Variation</th><th>Best set</th><th>PR date</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table>"
+    )
 
 
 def normalize_bind_host(host: str) -> str:
@@ -671,8 +854,12 @@ class WorkoutFormHandler(BaseHTTPRequestHandler):
         if parsed.path == "/today":
             self._send_html(render_today_page(self.db_path))
             return
+        if parsed.path == "/recent":
+            self._send_html(render_recent_page(self.db_path))
+            return
         if parsed.path == "/prs":
-            self._send_html(render_prs_page(self.db_path))
+            selected_part = parse_qs(parsed.query).get("part", [""])[-1]
+            self._send_html(render_prs_page(self.db_path, selected_part=selected_part))
             return
         self._send_html(_layout("Not Found", "<h1>Not Found</h1>"), status=404)
 

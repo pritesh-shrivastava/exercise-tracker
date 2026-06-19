@@ -36,13 +36,22 @@ class PRRow:
     per_hand: bool = False
 
 
+@dataclass(frozen=True)
+class PRDisplayRow:
+    part: str
+    exercise: str
+    variation: str
+    performance: str
+    pr_date: str
+
+
 def body_part(exercise: str) -> str:
     name = exercise.lower()
     chest = [
         "bench press", "incline press", "pec fly", "chest press", "chest fly",
         "push up", "pushup",
     ]
-    back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up", "back extension"]
+    back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up", "back extension", "deadlift"]
     back_exclude = ["upright row"]
     shoulders = [
         "shoulder press", "arnold press", "lateral raise", "front raise",
@@ -188,9 +197,24 @@ def format_stale_pr_increment_candidates(
 
 def format_prs_compact(db_path: Path) -> str:
     """One line per exercise: emoji  exercise  [variations]  sets×reps @ weight  date."""
+    display_rows = pr_display_rows(db_path)
+    if not display_rows:
+        return "No strength workouts logged yet."
+
+    lines = []
+    for row in display_rows:
+        emoji = BODY_PART_EMOJI.get(row.part, "•")
+        var_str = f"  [{row.variation}]" if row.variation else ""
+        lines.append(f"{emoji}  {row.exercise:<38}{var_str:<28}{row.performance:<22}{row.pr_date}")
+
+    return "\n".join(lines)
+
+
+def pr_display_rows(db_path: Path) -> list[PRDisplayRow]:
+    """Structured PR display rows, grouped/sorted like compact output."""
     rows = _load_rows(db_path)
     if not rows:
-        return "No strength workouts logged yet."
+        return []
 
     prs = _best_sets(rows)
     grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))
@@ -203,9 +227,8 @@ def format_prs_compact(db_path: Path) -> str:
     )
 
     _VAR_ORDER = {"default": 0, "flat": 1}
-    lines = []
+    display_rows: list[PRDisplayRow] = []
     for part in order:
-        emoji = BODY_PART_EMOJI.get(part, "•")
         for exercise in sorted(grouped[part]):
             variations = sorted(
                 grouped[part][exercise],
@@ -230,10 +253,10 @@ def format_prs_compact(db_path: Path) -> str:
                     item[1].reps, item[1].sets, _neg_date(item[1].workout_date)
                 ))[1]
                 non_default = [v for v, _ in group if v not in ("default", "")]
-                var_str = f"  [{', '.join(non_default)}]" if non_default else ""
+                variation = ", ".join(non_default)
 
                 perf = _fmt_performance(row)
                 date_str = _fmt_date(row.workout_date)
-                lines.append(f"{emoji}  {exercise:<38}{var_str:<28}{perf:<22}{date_str}")
+                display_rows.append(PRDisplayRow(part, exercise, variation, perf, date_str))
 
-    return "\n".join(lines)
+    return display_rows
