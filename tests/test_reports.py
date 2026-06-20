@@ -11,6 +11,7 @@ from tracker.reports import (
     _fmt_date,
     body_part,
     format_stale_pr_increment_candidates,
+    format_training_advice,
 )
 from tracker.reports import format_prs_compact as format_prs
 
@@ -407,3 +408,63 @@ def test_stale_pr_increment_candidates_preserve_per_hand_display(tmp_path: Path)
 
     assert "Dumbbell Bench Press [incline]" in result
     assert "3×15 @ 15kg (7.5ea.)" in result
+
+
+def test_training_advice_empty_db(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+
+    result = format_training_advice(db, as_of=date(2026, 2, 5))
+
+    assert result == "No strength workouts logged yet."
+
+
+def test_training_advice_suggests_stale_or_untrained_focus(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        details="3x10 @ 30kg",
+        sets=3,
+        reps=10,
+        weight_kg=30.0,
+        equipment="dumbbells",
+        per_hand=True,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-02-04",
+        exercise="Lat Pull Down",
+        details="3x12 @ 35kg",
+        sets=3,
+        reps=12,
+        weight_kg=35.0,
+    )
+
+    result = format_training_advice(db, as_of=date(2026, 2, 5))
+
+    assert "Training coach" in result
+    assert "- As of: 2026-02-05" in result
+    assert "- Legs: no logged strength work yet" in result
+    assert "- Chest: last trained 35 days ago" in result
+    assert "Use this as advisory only" in result
+
+
+def test_training_advice_includes_progression_candidates(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Calf Raise",
+        details="3x15 @ 20kg",
+        sets=3,
+        reps=15,
+        weight_kg=20.0,
+    )
+
+    result = format_training_advice(db, as_of=date(2026, 2, 5))
+
+    assert "Progression prompts:" in result
+    assert "Calf Raise" in result
+    assert "3×15 @ 20kg" in result

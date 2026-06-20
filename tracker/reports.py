@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterable
 
@@ -43,6 +43,15 @@ class PRDisplayRow:
     variation: str
     performance: str
     pr_date: str
+
+
+@dataclass(frozen=True)
+class BodyPartActivity:
+    part: str
+    sessions_14d: int
+    entries_14d: int
+    last_trained: str | None
+    days_since: int | None
 
 
 def body_part(exercise: str) -> str:
@@ -147,6 +156,125 @@ def _fmt_performance(row: PRRow) -> str:
             weight_str = f"{int(w) if w == int(w) else w}kg"
         return f"{row.sets}×{row.reps} @ {weight_str}"
     return f"{row.sets}×{row.reps}"
+
+
+def _activity_by_body_part(db_path: Path, as_of: date) -> list[BodyPartActivity]:
+    start = as_of - timedelta(days=13)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT workout_date, exercise
+            FROM workouts
+            WHERE workout_type = 'strength' AND workout_date <= ?
+            ORDER BY workout_date, id
+            """,
+            (as_of.isoformat(),),
+        ).fetchall()
+
+    dates_by_part: dict[str, set[str]] = defaultdict(set)
+    entries_by_part: dict[str, int] = defaultdict(int)
+    last_by_part: dict[str, str] = {}
+    for row in rows:
+        part = body_part(row["exercise"])
+        workout_date = row["workout_date"]
+        last_by_part[part] = max(last_by_part.get(part, ""), workout_date)
+        try:
+            dt = datetime.strptime(workout_date, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if start <= dt <= as_of:
+            dates_by_part[part].add(workout_date)
+            entries_by_part[part] += 1
+
+    activity: list[BodyPartActivity] = []
+    for part in BODY_PART_ORDER:
+        last_trained = last_by_part.get(part)
+        days_since: int | None = None
+        if last_trained:
+            try:
+                days_since = (as_of - datetime.strptime(last_trained, "%Y-%m-%d").date()).days
+            except ValueError:
+                days_since = None
+        activity.append(
+            BodyPartActivity(
+                part=part,
+                sessions_14d=len(dates_by_part[part]),
+                entries_14d=entries_by_part[part],
+                last_trained=last_trained,
+                days_since=days_since,
+            )
+        )
+    return activity
+
+
+def _next_focus(activity: Iterable[BodyPartActivity]) -> list[BodyPartActivity]:
+    eligible = [row for row in activity if row.part != "Other"]
+    never_trained = [row for row in eligible if row.days_since is None]
+    previously_trained = [row for row in eligible if row.days_since is not None]
+    stale = sorted(
+        previously_trained,
+        key=lambda row: (
+            row.days_since if row.days_since is not None else 10_000,
+            -row.sessions_14d,
+            -row.entries_14d,
+        ),
+        reverse=True,
+    )
+    never_priority = {"Legs": 0, "Shoulders": 1, "Core": 2, "Biceps": 3, "Triceps": 4}
+    never_trained.sort(key=lambda row: (never_priority.get(row.part, 99), BODY_PART_ORDER.index(row.part)))
+    return never_trained[:2] + stale + never_trained[2:]
+
+
+def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
+    """DB-backed advisory prompts for Telegram coaching."""
+    if not db_path.exists():
+        return "No database yet."
+
+    rows = _load_rows(db_path)
+    if not rows:
+        return "No strength workouts logged yet."
+
+    today = as_of or date.today()
+    activity = _activity_by_body_part(db_path, today)
+    focus = _next_focus(activity)[:4]
+    recent_sessions = sum(row.sessions_14d for row in activity)
+    recent_entries = sum(row.entries_14d for row in activity)
+
+    lines = [
+        "Training coach",
+        f"- As of: {today.isoformat()}",
+        f"- Last 14 days: {recent_sessions} body-part sessions, {recent_entries} strength entries",
+        "",
+        "Suggested next focus:",
+    ]
+    for row in focus:
+        if row.last_trained is None:
+            status = "no logged strength work yet"
+        elif row.days_since == 0:
+            status = "trained today"
+        elif row.days_since == 1:
+            status = "last trained yesterday"
+        else:
+            status = f"last trained {row.days_since} days ago"
+        lines.append(f"- {row.part}: {status}; {row.sessions_14d} sessions / {row.entries_14d} entries in 14d")
+
+    lines.extend(["", "Progression prompts:"])
+    progression = format_stale_pr_increment_candidates(db_path, as_of=today)
+    if progression:
+        candidates = progression.splitlines()[2:5]
+        lines.extend(f"- {candidate}" for candidate in candidates)
+    else:
+        lines.append("- No stale 15+ rep weighted PRs are currently flagged for a weight increase.")
+
+    lines.extend(
+        [
+            "",
+            "Use this as advisory only. Log or edit workouts through the private form "
+            "so SQLite remains the source of truth.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def format_stale_pr_increment_candidates(

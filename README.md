@@ -2,7 +2,7 @@
 
 A small, portable workout tracker for a private VPS.
 
-The primary workflow is a small mobile web form served from the VPS and opened from your phone over Tailscale. The app writes directly to a local SQLite database and re-reads inserted rows before confirming saves. Telegram/Hermes is only for summaries, PRs, backups, and DB inspection; workout data entry is form-only.
+The primary workflow is a small mobile web form served from the VPS and opened from your phone over Tailscale. The app writes directly to a local SQLite database and re-reads inserted rows before confirming saves. Telegram/Hermes is the read-only assistant layer for summaries, PRs, DB inspection, backups, and coaching from past data; workout data entry is form-only.
 
 ## Folder layout
 
@@ -19,7 +19,7 @@ tests/
   test_reports.py            — PR report tests
   test_web_form.py           — structured form helper tests
 scripts/
-  summary.py                 — quick stats (default) or PRs (--prs)
+  summary.py                 — quick stats (default), PRs (--prs), or coaching prompts (--coach)
   web_form.py                — stdlib mobile web form: Log, Today, PRs
   exercise-web-form.service  — systemd unit for always-on localhost form server
   backfill_structured.py     — one-off backfill of structured columns (sets, reps, weight_kg, etc.)
@@ -28,7 +28,6 @@ scripts/
   restore_db.sh              — restore database from Azure Blob backup
 skills/                      — Hermes agent skill definitions (loaded on demand)
   workout-summary/SKILL.md
-  backup-db/SKILL.md
   query-db/SKILL.md
 pyproject.toml               — uv project config with ruff, mypy, pytest
 design.md                    — data model, variation rules, logging behaviour
@@ -40,6 +39,7 @@ design.md                    — data model, variation rules, logging behaviour
 cd /home/azureuser/exercise-tracker
 uv run python scripts/summary.py
 uv run python scripts/summary.py --prs   # personal records — compact, one line per exercise
+uv run python scripts/summary.py --coach # advisory prompts from past logged data
 uv run python scripts/web_form.py         # mobile web form at http://127.0.0.1:8765/log
 ```
 
@@ -119,12 +119,14 @@ Follow the next available slot instead of forcing a rigid calendar:
 
 ## Telegram/Hermes
 
-Hermes Agent can still query workouts and run maintenance from Telegram. It no longer logs workouts or parses pasted workout text:
+Hermes Agent can query workouts, run maintenance, and coach from Telegram. It does not log workouts or parse pasted workout text into rows:
 
 - "show my PRs" → runs `uv run python scripts/summary.py --prs`, sends compact one-line-per-exercise results back
 - "show recent workouts" → runs `uv run python scripts/summary.py`
+- "coach me", "what should I train next?" → runs `uv run python scripts/summary.py --coach`, then gives concise advisory guidance from SQLite-backed history
 - "show rows" → queries SQLite through the `query-db` skill
-- "back up the database" → runs the backup workflow
+
+Hermes can play an advisory role over Telegram: look at last training dates by body part, spot stale high-rep PRs that may be ready for a weight increase, answer progress questions, and suggest the next focus. It should not present coaching as medical advice, should not invent data from memory, and should direct any new logs or edits back to the private form.
 
 ## Workout form
 
@@ -144,12 +146,13 @@ The `skills/` folder teaches Hermes the procedures for this tracker. Each skill 
 
 ```
 skills/
-  workout-summary/  — tiered summary: recent entries and PRs
-  backup-db/        — SQLite + CSV upload to Azure Blob; 30-day retention via Azure lifecycle policy
+  workout-summary/  — tiered summary: recent entries, PRs, and coaching prompts
   query-db/         — show raw table rows, excluding id/raw_text/details
 ```
 
 Skills are auto-discovered by Hermes on startup. The agent picks the right skill based on what you ask, then runs the procedure in `SKILL.md`. You can also trigger any skill manually.
+
+Backups are not a Hermes skill. Run `scripts/backup_db.py` directly from cron/systemd or an explicit shell session.
 
 Hermes runtime memory lives outside this repo at `~/.hermes/memories/MEMORY.md` and is not part of the database backup.
 

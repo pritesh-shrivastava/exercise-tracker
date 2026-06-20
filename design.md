@@ -3,7 +3,7 @@
 ## Purpose
 
 This tracker keeps workout logs portable and easy to move between VPS instances.
-The database is the source of truth. The primary user interface is a small stdlib mobile web form served from the VPS and reached from the phone over Tailscale. Hermes Agent remains available for summaries, PRs, backups, and raw DB inspection, but it does not log workout entries.
+The database is the source of truth. The primary user interface is a small stdlib mobile web form served from the VPS and reached from the phone over Tailscale. Hermes Agent remains available for summaries, PRs, backups, raw DB inspection, and advisory coaching from past data, but it does not log workout entries.
 
 ## Data model
 
@@ -104,6 +104,7 @@ Summary responses are tiered — Hermes picks the right one based on natural lan
 |-------|----------------|--------|
 | Short | "show recent workouts" | `uv run python scripts/summary.py` |
 | Full PRs | "show my PRs", "best lifts" | `uv run python scripts/summary.py --prs` |
+| Coach | "coach me", "what should I train next?", "how is training going?" | `uv run python scripts/summary.py --coach` |
 
 ### Body part classification
 
@@ -115,12 +116,12 @@ Keywords for each group are in `tracker/reports.py:body_part()`. Special rules: 
 
 Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
 
-Three skills, all in `skills/`:
-- `workout-summary` — pick the right summary tier and format for Telegram
-- `backup-db` — SQLite + CSV upload to Azure Blob (retention handled server-side by a 30-day lifecycle policy, not by the skill)
+Two interactive skills, both in `skills/`:
+- `workout-summary` — pick the right summary/coaching tier and format for Telegram
 - `query-db` — browse raw table rows, excluding id/raw_text/details
 
 The data layer (`tracker/core.py`, `tracker/models.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
+Backups are intentionally not a Hermes skill; `scripts/backup_db.py` is run directly from cron/systemd or an explicit shell session.
 
 ### Telegram topic skill binding
 
@@ -138,14 +139,24 @@ extra:
       - workout-summary
 ```
 
-**Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `scripts/summary.py --filter`. Binding force-loads the skill bodies so logging and queries follow the documented procedure.
+**Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `scripts/summary.py --filter`. Binding force-loads the skill bodies so summaries, coaching, and queries follow the documented procedure.
 
-- `backup-db` is **deliberately not bound** — it's a nightly cron-only workflow, and backup/delete authority should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
+- Backup is **deliberately not a skill** — it's a nightly cron/systemd workflow, and backup/delete authority should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
 - Binding fires only on **new sessions** and only on **incoming messages**, so it doesn't conflict with the crons' own `--skill`. Verify after a gateway restart: `grep "DM topic loaded from config" ~/.hermes/logs/gateway.log` should show `5727496535:Health -> thread_id=7218`.
 
 Operational rule: interactive skills should use `cd /home/azureuser/exercise-tracker && ...` or otherwise set the repo root explicitly. Telegram sessions may not start in this repo, while cron jobs usually set `--workdir`.
 
-Stateful rule: do not use sub-agents for workout updates, deletes, or DB queries. The active Health session must perform DB mutations directly when a skill allows them.
+Stateful rule: do not use sub-agents for workout updates, deletes, or DB queries. Interactive Telegram skills are read-only against workout data; workout updates and deletes stay in the private form. Maintenance backups may write backup artifacts but run outside Hermes skill routing.
+
+### Telegram coaching role
+
+Hermes can act as a read-only training coach in Telegram:
+- Use SQLite-backed reports only; never use Hermes memory as the source of truth.
+- Answer "what should I train next?" from logged recency by body part.
+- Call out stale high-rep weighted PRs that may be ready for a small weight increase.
+- Compare recent consistency and body-part coverage from past rows.
+- Keep advice practical and bounded: suggest focus areas, ask the user to consider fatigue/soreness, and avoid medical or injury diagnosis.
+- Send all new workout logging, same-day corrections, and deletes back to the private web form.
 
 ## Minimal form link
 
@@ -158,13 +169,14 @@ V1 pages:
 - `Today` — DB-backed list of today's rows with exact row selection for corrections.
 - `PRs` — renders the same report path as `scripts/summary.py --prs`.
 
-Hermes remains useful as the summary and maintenance interface, but it should not log workout entries. Deployment/security is intentionally private-by-default: serve over Tailscale, not the public internet.
+Hermes remains useful as the summary, coaching, and maintenance interface, but it should not log workout entries. Deployment/security is intentionally private-by-default: serve over Tailscale, not the public internet.
 
 ### Maintenance jobs
 
 Recommended recurring maintenance:
 1. **DB backup** (nightly at 03:00 IST): run `scripts/backup_db.py` to upload SQLite + CSV to Azure Blob. Use a container SAS with create/write only (`cw`, no delete/list). Old blobs are deleted by Azure lifecycle policy after 30 days.
 2. **PR review** (manual or ad hoc): use the web form `PRs` page or run `uv run python scripts/summary.py --prs`.
+3. **Telegram coaching** (manual/ad hoc): run `uv run python scripts/summary.py --coach` through the `workout-summary` skill and optionally add brief interpretation.
 
 The old Hermes memory PR update cron is no longer part of the primary workflow. PRs should come from SQLite-backed reports on demand.
 
@@ -177,7 +189,7 @@ Open-source workout trackers are useful references, but this project deliberatel
 - **GitHub workout-tracker topic survey** (https://github.com/topics/workout-tracker) shows common tracker patterns: PR tracking, dashboards, exercise databases, imports from commercial apps, self-hosting, offline/privacy-first storage, and mobile-first logging. Relevant lesson: this repo should keep data portable and structured now, even if dashboards/imports are added later.
 - **Nous Hermes 4 research** (https://arxiv.org/abs/2508.18255 and https://huggingface.co/collections/NousResearch/hermes-4-collection) is model-level evidence for structured multi-turn reasoning and instruction following. Treat it as support for skill-buffering and explicit procedures, not as Hermes Agent runtime documentation.
 
-Design implication: the DB remains the source of truth; Python owns validation, reporting, and backup; Hermes skills are procedural wrappers that route read/maintenance intent and call repo tools.
+Design implication: the DB remains the source of truth; Python owns validation, reporting, coaching signals, and backup; Hermes skills are procedural wrappers only for interactive read/advisory intent.
 
 ## Maintenance notes
 
