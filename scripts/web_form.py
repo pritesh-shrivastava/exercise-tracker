@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import parse_qs, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -200,6 +200,20 @@ class FormRow:
     weight_kg: float | None
     equipment: str
     per_hand: bool
+
+
+@dataclass(frozen=True)
+class InvalidFormRow:
+    values: dict[str, str]
+    error: str
+
+
+@dataclass(frozen=True)
+class FormSubmission:
+    rows: list[FormRow]
+    invalid_rows: list[InvalidFormRow]
+    workout_date: str
+    body_focus: str
 
 
 def _escape(value: object) -> str:
@@ -433,7 +447,15 @@ def consume_form_token(token: str) -> None:
 
 
 def _rows_from_post(data: dict[str, list[str]]) -> list[FormRow]:
+    submission = _parse_form_submission(data)
+    if submission.invalid_rows:
+        raise ValueError(submission.invalid_rows[0].error)
+    return submission.rows
+
+
+def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
     rows: list[FormRow] = []
+    invalid_rows: list[InvalidFormRow] = []
     flattened = _flatten_form(data)
     shared_date = flattened.get("workout_date", "").strip()
     for idx in range(1, LOG_ROW_COUNT + 1):
@@ -441,13 +463,35 @@ def _rows_from_post(data: dict[str, list[str]]) -> list[FormRow]:
         row_fields = ("exercise", "sets", "reps", "weight_kg")
         if not any(data.get(f"{prefix}{field}", [""])[-1].strip() for field in row_fields):
             continue
-        values = dict(flattened)
-        if shared_date and not values.get(f"{prefix}workout_date"):
-            values[f"{prefix}workout_date"] = shared_date
-        rows.append(form_row_from_values(values, prefix=prefix))
-    if not rows:
+        prefixed_values = dict(flattened)
+        if shared_date and not prefixed_values.get(f"{prefix}workout_date"):
+            prefixed_values[f"{prefix}workout_date"] = shared_date
+        try:
+            rows.append(form_row_from_values(prefixed_values, prefix=prefix))
+        except ValueError as exc:
+            row_values = {
+                field: prefixed_values.get(f"{prefix}{field}", "")
+                for field in (
+                    "workout_date",
+                    "exercise",
+                    "variation",
+                    "sets",
+                    "reps",
+                    "weight_kg",
+                    "equipment",
+                    "per_hand",
+                    "per_hand_defaulted",
+                )
+            }
+            invalid_rows.append(InvalidFormRow(row_values, f"Row {idx}: {exc}"))
+    if not rows and not invalid_rows:
         raise ValueError("enter at least one workout row")
-    return rows
+    return FormSubmission(
+        rows=rows,
+        invalid_rows=invalid_rows,
+        workout_date=shared_date,
+        body_focus=flattened.get("body_focus", ""),
+    )
 
 
 def _layout(title: str, body: str) -> str:
@@ -628,7 +672,13 @@ def _exercise_options(selected: str) -> str:
     return '<option value=""></option>' + "".join(parts)
 
 
-def _row_fields(prefix: str, *, workout_date: str, row: sqlite3.Row | None = None, include_date: bool = True) -> str:
+def _row_fields(
+    prefix: str,
+    *,
+    workout_date: str,
+    row: Mapping[str, Any] | sqlite3.Row | None = None,
+    include_date: bool = True,
+) -> str:
     values: dict[str, Any] = dict(row) if row is not None else {}
     date_value = values.get("workout_date", workout_date)
     exercise = values.get("exercise", "")
@@ -638,8 +688,9 @@ def _row_fields(prefix: str, *, workout_date: str, row: sqlite3.Row | None = Non
     weight = values.get("weight_kg", "")
     equipment = values.get("equipment", "") or EXERCISE_DEFAULT_EQUIPMENT.get(str(exercise), "")
     default_per_hand = row is None and str(exercise) in EXERCISE_DEFAULT_PER_HAND
-    checked = " checked" if values.get("per_hand", 0) or default_per_hand else ""
-    defaulted = "1" if default_per_hand else "0"
+    checked_value = values.get("per_hand", 0)
+    checked = " checked" if checked_value in (1, "1", True) or default_per_hand else ""
+    defaulted = str(values.get("per_hand_defaulted", "1" if default_per_hand else "0"))
     date_field = (
         f'<label>Date<input type="date" name="{prefix}workout_date" value="{_escape(date_value)}"></label>'
         if include_date
@@ -686,26 +737,45 @@ def _render_rows(rows: list[sqlite3.Row], *, include_id: bool = True) -> str:
     )
 
 
-def render_log_page(*, saved: list[sqlite3.Row] | None = None, error: str = "") -> str:
+def render_log_page(
+    *,
+    saved: list[sqlite3.Row] | None = None,
+    error: str = "",
+    invalid_rows: list[InvalidFormRow] | None = None,
+    workout_date: str = "",
+    body_focus: str = "",
+) -> str:
     today = now_ist().date().isoformat()
     token = new_form_token()
-    notice = f'<div class="notice error">{_escape(error)}</div>' if error else ""
+    selected_date = workout_date or today
+    notices = []
     if saved is not None:
-        notice = '<div class="notice">Saved after DB re-read.</div>' + _render_rows(saved)
-    fieldsets = "\n".join(
-        (
-            f"<fieldset><legend>Row {idx}</legend>"
-            f"{_row_fields(f'r{idx}_', workout_date=today, include_date=False)}</fieldset>"
+        notices.append(
+            f'<div class="notice">Saved {len(saved)} valid row(s) after DB re-read.</div>'
+            + _render_rows(saved)
         )
-        for idx in range(1, LOG_ROW_COUNT + 1)
-    )
+    if error:
+        notices.append(f'<div class="notice error">{_escape(error)}</div>')
+    if invalid_rows:
+        fieldsets = "\n".join(
+            f"<fieldset><legend>Failed row {idx}: {_escape(invalid.error)}</legend>"
+            f"{_row_fields(f'r{idx}_', workout_date=selected_date, row=invalid.values, include_date=False)}</fieldset>"
+            for idx, invalid in enumerate(invalid_rows, start=1)
+        )
+    else:
+        fieldsets = "\n".join(
+            f"<fieldset><legend>Row {idx}</legend>"
+            f"{_row_fields(f'r{idx}_', workout_date=selected_date, include_date=False)}</fieldset>"
+            for idx in range(1, LOG_ROW_COUNT + 1)
+        )
+    notice = "".join(notices)
     body = f"""
 <h1>Log Workout</h1>
 {notice}
 <form method="post" action="/log">
   <input type="hidden" name="token" value="{_escape(token)}">
-  <label>Workout date<input type="date" name="workout_date" value="{_escape(today)}"></label>
-  <label>Body part trained<select name="body_focus">{_labelled_options(BODY_FOCUS_CHOICES, "")}</select></label>
+  <label>Workout date<input type="date" name="workout_date" value="{_escape(selected_date)}"></label>
+  <label>Body part trained<select name="body_focus">{_labelled_options(BODY_FOCUS_CHOICES, body_focus)}</select></label>
   {fieldsets}
   <button class="primary" type="submit">Save Rows</button>
 </form>"""
@@ -870,9 +940,26 @@ class WorkoutFormHandler(BaseHTTPRequestHandler):
         if parsed.path == "/log":
             try:
                 consume_form_token(data.get("token", [""])[-1])
-                saved = insert_form_rows(self.db_path, _rows_from_post(data))
+                submission = _parse_form_submission(data)
+                saved = insert_form_rows(self.db_path, submission.rows) if submission.rows else []
             except ValueError as exc:
                 self._send_html(render_log_page(error=str(exc)), status=400)
+                return
+            if submission.invalid_rows:
+                error = (
+                    f"Saved {len(saved)} valid row(s). "
+                    f"Fix and resubmit the {len(submission.invalid_rows)} failed row(s) below."
+                )
+                self._send_html(
+                    render_log_page(
+                        saved=saved,
+                        error=error,
+                        invalid_rows=submission.invalid_rows,
+                        workout_date=submission.workout_date,
+                        body_focus=submission.body_focus,
+                    ),
+                    status=400 if not saved else 200,
+                )
                 return
             self._send_html(render_log_page(saved=saved))
             return

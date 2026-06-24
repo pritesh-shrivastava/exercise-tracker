@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scripts.web_form import (
     FormRow,
+    _parse_form_submission,
     _rows_from_post,
     consume_form_token,
     delete_form_row,
@@ -214,6 +215,69 @@ def test_post_rows_use_shared_workout_date() -> None:
 
     assert [row.workout_date for row in rows] == ["2026-06-18", "2026-06-18"]
     assert rows[1].exercise == "Barbell Deadlift"
+
+
+def test_form_submission_keeps_valid_rows_when_another_row_is_invalid() -> None:
+    submission = _parse_form_submission({
+        "workout_date": ["2026-06-18"],
+        "body_focus": ["Legs"],
+        "r1_exercise": ["Bodyweight Squat"],
+        "r1_variation": ["default"],
+        "r1_sets": ["3"],
+        "r1_reps": ["25"],
+        "r1_weight_kg": [""],
+        "r1_equipment": ["bodyweight"],
+        "r2_exercise": ["Hamstring Curl"],
+        "r2_variation": ["default"],
+        "r2_sets": ["three"],
+        "r2_reps": ["12"],
+        "r2_weight_kg": ["20"],
+        "r2_equipment": ["machine"],
+    })
+
+    assert [row.exercise for row in submission.rows] == ["Bodyweight Squat"]
+    assert len(submission.invalid_rows) == 1
+    assert submission.invalid_rows[0].values["exercise"] == "Hamstring Curl"
+    assert submission.invalid_rows[0].values["sets"] == "three"
+    assert submission.invalid_rows[0].error == "Row 2: sets must be a whole number"
+    assert submission.workout_date == "2026-06-18"
+    assert submission.body_focus == "Legs"
+
+
+def test_partial_submission_inserts_valid_rows_and_renders_only_failed_rows(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    submission = _parse_form_submission({
+        "workout_date": ["2026-06-18"],
+        "r1_exercise": ["Bodyweight Squat"],
+        "r1_variation": ["default"],
+        "r1_sets": ["3"],
+        "r1_reps": ["25"],
+        "r1_weight_kg": [""],
+        "r1_equipment": ["bodyweight"],
+        "r2_exercise": ["Hamstring Curl"],
+        "r2_variation": ["default"],
+        "r2_sets": ["bad"],
+        "r2_reps": ["12"],
+        "r2_weight_kg": ["20"],
+        "r2_equipment": ["machine"],
+    })
+
+    saved = insert_form_rows(db, submission.rows)
+    html = render_log_page(
+        saved=saved,
+        error="Fix the failed row.",
+        invalid_rows=submission.invalid_rows,
+        workout_date=submission.workout_date,
+    )
+
+    with sqlite3.connect(db) as conn:
+        exercises = [row[0] for row in conn.execute("SELECT exercise FROM workouts")]
+    assert exercises == ["Bodyweight Squat"]
+    assert "Saved 1 valid row(s)" in html
+    assert html.count("<legend>Failed row ") == 1
+    assert 'value="Hamstring Curl"' in html
+    assert 'name="r1_sets" value="bad"' in html
+    assert html.count("<legend>Row ") == 0
 
 
 def test_insert_form_rows_re_reads_inserted_rows(tmp_path: Path) -> None:
