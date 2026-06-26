@@ -244,7 +244,8 @@ def _parse_weight(value: str) -> float | None:
 
 
 def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow:
-    exercise_raw = values.get(f"{prefix}exercise", "").strip()
+    custom_exercise = values.get(f"{prefix}custom_exercise", "").strip()
+    exercise_raw = custom_exercise or values.get(f"{prefix}exercise", "").strip()
     if not exercise_raw:
         raise ValueError("exercise is required")
     workout_date = values.get(f"{prefix}workout_date", "").strip()
@@ -460,7 +461,7 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
     shared_date = flattened.get("workout_date", "").strip()
     for idx in range(1, LOG_ROW_COUNT + 1):
         prefix = f"r{idx}_"
-        row_fields = ("exercise", "sets", "reps", "weight_kg")
+        row_fields = ("exercise", "custom_exercise", "sets", "reps", "weight_kg")
         if not any(data.get(f"{prefix}{field}", [""])[-1].strip() for field in row_fields):
             continue
         prefixed_values = dict(flattened)
@@ -474,6 +475,7 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
                 for field in (
                     "workout_date",
                     "exercise",
+                    "custom_exercise",
                     "variation",
                     "sets",
                     "reps",
@@ -545,6 +547,7 @@ def _layout(title: str, body: str) -> str:
       color: CanvasText;
     }}
     .exercise {{ grid-column: span 2; }}
+    .custom-exercise {{ grid-column: span 2; }}
     .check {{ align-content: end; }}
     .check span {{ min-height: 20px; }}
     .check input {{ width: 22px; min-height: 22px; }}
@@ -567,6 +570,7 @@ def _layout(title: str, body: str) -> str:
     @media (max-width: 760px) {{
       .grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
       .exercise {{ grid-column: span 2; }}
+      .custom-exercise {{ grid-column: span 2; }}
       table, thead, tbody, tr, th, td {{ display: block; }}
       thead {{ display: none; }}
       td {{ border-bottom: 0; padding: 4px 0; }}
@@ -686,6 +690,7 @@ def _row_fields(
     sets = values.get("sets", "") if row is not None else 3
     reps = values.get("reps", "") if row is not None else 12
     weight = values.get("weight_kg", "")
+    custom_exercise = values.get("custom_exercise", "")
     equipment = values.get("equipment", "") or EXERCISE_DEFAULT_EQUIPMENT.get(str(exercise), "")
     default_per_hand = row is None and str(exercise) in EXERCISE_DEFAULT_PER_HAND
     checked_value = values.get("per_hand", 0)
@@ -701,6 +706,9 @@ def _row_fields(
   {date_field}
   <label class="exercise">Exercise
     <select name="{prefix}exercise" data-exercise-select>{_exercise_options(str(exercise))}</select>
+  </label>
+  <label class="custom-exercise">Custom exercise
+    <input name="{prefix}custom_exercise" value="{_escape(custom_exercise)}" placeholder="Type only if not listed">
   </label>
   <label>Variation<select name="{prefix}variation">{_options(VARIATION_CHOICES, str(variation))}</select></label>
   <label>Sets<input inputmode="numeric" name="{prefix}sets" value="{_escape(sets)}"></label>

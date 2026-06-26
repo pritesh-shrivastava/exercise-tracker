@@ -2,130 +2,82 @@
 
 ## Purpose
 
-This tracker keeps workout logs portable and easy to move between VPS instances.
-The database is the source of truth. The primary user interface is a small stdlib mobile web form served from the VPS and reached from the phone over Tailscale. Hermes Agent remains available for summaries, PRs, backups, raw DB inspection, and advisory coaching from past data, but it does not log workout entries.
+This is a small, private workout tracker backed by SQLite. The database is the source of truth. The daily logging interface is the mobile web form over Tailscale; Hermes/Telegram is read-only for summaries, PRs, raw inspection, and advisory coaching from past data.
 
-## Data model
+## Data Model
 
-### Schema (14 columns)
+The `workouts` table has 14 columns:
 
-Each workout row stores:
+| Column | Meaning |
+|--------|---------|
+| `id` | SQLite primary key |
+| `logged_at` | IST timestamp when the row was written |
+| `workout_date` | IST training date |
+| `workout_type` | usually `strength`; legacy rows may use `cardio` or `note` |
+| `exercise` | canonical exercise name |
+| `variation` | `default`, `flat`, `incline`, `decline`, `short grip`, or `wide grip` |
+| `details` | compact display string derived from structured fields |
+| `raw_text` | trace field; form rows store the selected exercise |
+| `source` | origin, usually `form` |
+| `sets` | set count |
+| `reps` | reps per set |
+| `weight_kg` | total load in kg, not per-hand |
+| `equipment` | equipment category |
+| `per_hand` | boolean flag for dumbbell per-hand display |
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER PK | auto-increment |
-| `logged_at` | TEXT | ISO timestamp in IST |
-| `workout_date` | TEXT | IST date |
-| `workout_type` | TEXT | currently `strength` for form-created rows; legacy rows may contain `cardio` or `note` |
-| `exercise` | TEXT | canonical exercise name (via normalizer) |
-| `variation` | TEXT | `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip` |
-| `details` | TEXT | compact set/reps/weight summary string |
-| `raw_text` | TEXT | trace field; form-created rows store the selected exercise |
-| `source` | TEXT | origin of row, currently `form` for web form entries |
-| `sets` | INTEGER | number of sets |
-| `reps` | INTEGER | number of reps |
-| `weight_kg` | REAL | total weight in kg (NOT per-hand) |
-| `equipment` | TEXT | `dumbbells`, `barbell`, `machine`, `cable`, `bodyweight`, `kettlebell`, `smith machine`, `band`, `other` |
-| `per_hand` | INTEGER | boolean: was weight entered as per-hand? |
+Important invariants:
+- Store total load in `weight_kg`. For dumbbells, `per_hand=1` means display each-hand weight as `weight_kg / 2`.
+- `per_hand=1` is valid only with `equipment='dumbbells'`.
+- `details` is derived display text; reports use structured fields.
+- `ensure_db()` in `tracker/core.py` creates and auto-migrates missing columns.
 
-### Weight convention
+## Entry Rules
 
-- **Total weight stored** (NOT per-hand), with `per_hand` boolean flag
-- Example: Dumbbell Shoulder Press "15 kg each hand" → `weight_kg=30.0, per_hand=1`
-- Display format: `3x15 @ 30 (15 ea.)`
-- Goblet squats: single dumbbell held with both hands, `per_hand=0`
+Workout logging happens only through `scripts/web_form.py`.
 
-### Auto-migration
+Form pages:
+- `Log` writes one structured strength row per submitted row.
+- `Today` supports exact same-day corrections and deletes.
+- `PRs` renders the same PR report path as `scripts/summary.py --prs`.
 
-`ensure_db()` in `tracker/core.py` creates the table on first call and **auto-adds** missing structured columns on subsequent calls (no manual migration needed). Indexes on `workout_date` and `workout_type` are also created.
+The form runs on `127.0.0.1:8765` and is exposed privately with Tailscale Serve. It has no public-internet authentication layer, so do not bind it to a public interface without an auth proxy.
 
-SQLite triggers reject invalid structured rows:
+## Normalization
 
-- `variation` must be one of `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`
-- `per_hand=1` is valid only when `equipment='dumbbells'`
+`tracker/normalizer.py` owns canonical exercise names and typo recovery. Keep normalizer changes in code/tests, not in ad hoc database edits.
 
-## Variation rules
+Variation rules:
+- Non-bench strength entries use `default` unless grip is meaningful.
+- Bench uses `flat`, `incline`, or `decline`.
+- Lat Pull Down grip is stored in `variation` as `short grip` or `wide grip`.
 
-- Non-bench strength entries use `default` unless a grip is specified
-- Bench press entries use `flat` for the base variation; incline and decline are tracked as separate rows
-- Lat Pull Down grip variations use `short grip` or `wide grip` in the variation column (not in the exercise name)
-- Legacy rows that stored grip in the exercise name (e.g. `Lat Pull Down (Short Grip)`) have been migrated to the variation column
+## Reports
 
-## Structured entry behaviour
+`scripts/summary.py` is the reporting entry point:
 
-### Exercise name normalisation
+| Command | Use |
+|---------|-----|
+| `uv run python scripts/summary.py` | recent activity |
+| `uv run python scripts/summary.py --prs` | compact personal records |
+| `uv run python scripts/summary.py --coach` | advisory coaching prompts |
 
-`tracker/normalizer.py` normalizes exercise names to canonical forms. Current implementation truth:
+Report rules:
+- Hide `default` variation in display output.
+- PR scoring is highest weight, then reps, then sets, then earliest date.
+- Body-part classification lives in `tracker/reports.py`.
+- Coaching is advisory only: body-part recency, recent coverage, and stale high-rep weighted PRs that may be ready for a small weight increase.
 
-- Bench press with "press" in text → `Barbell Bench Press` (if "barbell" in text) or `Dumbbell Bench Press` (default)
-- Lat pull-down → always `Lat Pull Down`; grip is selected in the form variation field
-- Rear delt → `Rear Delt Fly`
-- Canonical names: `shoulder press` → `Dumbbell Shoulder Press`, `leg curl` → `Hamstring Curl`, `leg press` → `45 Degree Leg Press`, `seated row` / `horizontal row` → `Chest Supported Rows`, `seated row machine` → `Seated Row Machine`, `abs crunch` → `Seated Abs Crunch Machine`
-- Title-case fallback for unknown exercises
+## Hermes And Telegram
 
-Seated/horizontal row entries without a clear machine distinction are treated as `Chest Supported Rows`. Explicit `seated row machine` entries are tracked separately as `Seated Row Machine`.
+Hermes is a read-only assistant for workout data in Telegram. It may query SQLite-backed reports and inspect rows, but it must not log, edit, or delete workouts.
 
-### Equipment defaults
+Repo skills:
+- `workout-summary`: summaries, PRs, progress questions, and coaching.
+- `query-db`: raw row inspection, excluding hidden columns.
 
-`scripts/web_form.py` provides exercise-specific default equipment values and lets the user override them before saving.
+No backup skill exists. Backups run outside Hermes skill routing via `scripts/backup_db.py` from cron/systemd or an explicit shell session.
 
-### Weight edge cases
-
-- Weight is entered as total stored weight.
-- For dumbbell entries that should display per-hand weight, set `per_hand=1`; display derives each-hand weight as `weight_kg / 2`.
-- Bodyweight rows can leave weight blank.
-
-### Logging behaviour
-
-The form writes one structured strength row per submitted row. If a session includes multiple weights or variations for the same exercise, enter them as separate form rows. Reports use structured columns (`sets`, `reps`, `weight_kg`, `equipment`, `per_hand`) rather than reparsing `details`.
-
-### Web form behaviour
-
-`scripts/web_form.py` is the preferred daily logging path. It exposes:
-- `Log` — structured strength entry with date, exercise, variation, sets, reps, weight, equipment, and per-hand controls; supports multiple rows before saving.
-- `Today` — DB-backed list of today's strength rows with exact row selection for corrections and deletes.
-- `PRs` — renders the same report path as `scripts/summary.py --prs`.
-
-The form writes directly to `data/workouts.sqlite`, then re-queries inserted or edited rows before showing a saved/updated confirmation. Deletes first read the exact row being deleted, then show that row only after the delete succeeds. A user-facing confirmation is only valid after the SQLite write succeeds and the displayed row data comes from SQLite.
-
-The web form has no public-internet authentication layer. The preferred deployment runs `scripts/web_form.py` on `127.0.0.1:8765` under `exercise-web-form.service`, then uses Tailscale Serve to expose `localhost:8765` inside the tailnet. Do not bind it to a public VPS interface unless a real auth proxy is added.
-
-## Summary behaviour
-
-- `default` variations stay hidden in display output
-- `flat`, `incline`, and `decline` are shown for bench press
-- Summary is grouped by body part first, then exercise
-- PR scoring: highest weight → highest reps → highest sets → earliest date
-- PR output is compact: one line per exercise, variations shown inline in brackets
-
-Summary responses are tiered — Hermes picks the right one based on natural language:
-
-| Level | Example trigger | Script |
-|-------|----------------|--------|
-| Short | "show recent workouts" | `uv run python scripts/summary.py` |
-| Full PRs | "show my PRs", "best lifts" | `uv run python scripts/summary.py --prs` |
-| Coach | "coach me", "what should I train next?", "how is training going?" | `uv run python scripts/summary.py --coach` |
-
-### Body part classification
-
-Chest 🩻 | Back 🧱 | Shoulders 🧢 | Biceps 💪 | Triceps 🔻 | Legs 🦵 | Core ⚡ | Other 📦
-
-Keywords for each group are in `tracker/reports.py:body_part()`. Special rules: `Rear Delt Fly` → Shoulders (not Back), `Hamstring Curl` → Legs (not Biceps).
-
-## Hermes skills architecture
-
-Skills live in `skills/<name>/SKILL.md` and teach Hermes the procedures for this tracker. The agent loads a skill's full content only when the task matches — descriptions are loaded at startup, full bodies on demand.
-
-Two interactive skills, both in `skills/`:
-- `workout-summary` — pick the right summary/coaching tier and format for Telegram
-- `query-db` — browse raw table rows, excluding id/raw_text/details
-
-The data layer (`tracker/core.py`, `tracker/models.py`) is intentionally separate from the agent layer. Skills call the Python scripts; they do not replicate logic.
-Backups are intentionally not a Hermes skill; `scripts/backup_db.py` is run directly from cron/systemd or an explicit shell session.
-
-### Telegram topic skill binding
-
-This tracker lives in the **"Health" DM topic** (`thread_id: 7218`) of Pritesh's Telegram DM with Mercury (the shared VPS Hermes agent). The interactive skills are auto-loaded on every new session in that topic via `platforms.telegram.extra.dm_topics` in `~/.hermes/config.yaml`:
+Health topic binding should preload only the interactive read-only skills:
 
 ```yaml
 extra:
@@ -133,70 +85,25 @@ extra:
   - chat_id: 5727496535
     topics:
     - name: Health
-      thread_id: 7218                 # REQUIRED for an existing topic, else it re-creates a duplicate
-      skill:                          # a LIST is supported (auto_skill: str | list[str])
+      thread_id: 7218
+      skill:
       - query-db
       - workout-summary
 ```
 
-**Why:** without binding, a Telegram message in this topic starts a session that only has the skill *descriptions* in context — not the full procedures or `tracker/` script paths. On `gpt-4.1-mini` (Mercury's current main model, a weaker procedural instruction-follower than the DeepSeek/Kimi models used before) this caused the agent to **fumble queries with raw shell** instead of engaging the skill — e.g. a 2026-06-03 "show PRs" request where it hunted for a non-existent `scripts/summary.py --filter`. Binding force-loads the skill bodies so summaries, coaching, and queries follow the documented procedure.
+Telegram coaching rules:
+- Use SQLite-backed output only; never use Hermes memory as truth.
+- For "what should I train next?", run `uv run python scripts/summary.py --coach`.
+- Keep interpretation short and grounded in the report.
+- Send new logs, corrections, and deletes back to the private form.
+- Avoid medical or injury diagnosis.
 
-- Backup is **deliberately not a skill** — it's a nightly cron/systemd workflow, and backup/delete authority should never load into an interactive logging session (cf. the 2026-05-28 wrong-container deletion incident).
-- Binding fires only on **new sessions** and only on **incoming messages**, so it doesn't conflict with the crons' own `--skill`. Verify after a gateway restart: `grep "DM topic loaded from config" ~/.hermes/logs/gateway.log` should show `5727496535:Health -> thread_id=7218`.
+## Maintenance
 
-Operational rule: interactive skills should use `cd /home/azureuser/exercise-tracker && ...` or otherwise set the repo root explicitly. Telegram sessions may not start in this repo, while cron jobs usually set `--workdir`.
+Recommended jobs and checks:
+- Nightly backup: `uv run python scripts/backup_db.py`.
+- After schema changes: `uv run python scripts/backfill_structured.py`.
+- Tests: `uv run pytest`.
+- Lint/type/dead-code checks are listed in `AGENTS.md`.
 
-Stateful rule: do not use sub-agents for workout updates, deletes, or DB queries. Interactive Telegram skills are read-only against workout data; workout updates and deletes stay in the private form. Maintenance backups may write backup artifacts but run outside Hermes skill routing.
-
-### Telegram coaching role
-
-Hermes can act as a read-only training coach in Telegram:
-- Use SQLite-backed reports only; never use Hermes memory as the source of truth.
-- Answer "what should I train next?" from logged recency by body part.
-- Call out stale high-rep weighted PRs that may be ready for a small weight increase.
-- Compare recent consistency and body-part coverage from past rows.
-- Keep advice practical and bounded: suggest focus areas, ask the user to consider fatigue/soreness, and avoid medical or injury diagnosis.
-- Send all new workout logging, same-day corrections, and deletes back to the private web form.
-
-## Minimal form link
-
-The preferred and only logging interface is a small mobile form, not a full workout dashboard. It exists to reduce the failure modes seen in chat-based logging: false "logged" confirmations before DB writes, wrong working directory, memory-based PR answers, ambiguous row edits, and delegated DB mutations.
-
-SQLite remains the source of truth. The form must write directly to `data/workouts.sqlite`, then re-query the database before showing any saved/logged confirmation. A user-facing save confirmation is only valid after both the SQLite insert/update and the post-write read succeed.
-
-V1 pages:
-- `Log` — structured strength entry with date, exercise, variation, sets, reps, weight, equipment, and per-hand controls; supports multiple rows before saving.
-- `Today` — DB-backed list of today's rows with exact row selection for corrections.
-- `PRs` — renders the same report path as `scripts/summary.py --prs`.
-
-Hermes remains useful as the summary, coaching, and maintenance interface, but it should not log workout entries. Deployment/security is intentionally private-by-default: serve over Tailscale, not the public internet.
-
-### Maintenance jobs
-
-Recommended recurring maintenance:
-1. **DB backup** (nightly at 03:00 IST): run `scripts/backup_db.py` to upload SQLite + CSV to Azure Blob. Use a container SAS with create/write only (`cw`, no delete/list). Old blobs are deleted by Azure lifecycle policy after 30 days.
-2. **PR review** (manual or ad hoc): use the web form `PRs` page or run `uv run python scripts/summary.py --prs`.
-3. **Telegram coaching** (manual/ad hoc): run `uv run python scripts/summary.py --coach` through the `workout-summary` skill and optionally add brief interpretation.
-
-The old Hermes memory PR update cron is no longer part of the primary workflow. PRs should come from SQLite-backed reports on demand.
-
-
-## Open source trackers - best practices
-
-Open-source workout trackers are useful references, but this project deliberately stays smaller than them:
-
-- **wger** (https://github.com/wger-project/wger) is a self-hosted fitness manager with routines, automatic progression rules, nutrition, exercise wiki, mobile apps, and REST APIs. Relevant lesson: keep workout logs, exercise metadata, progression/reporting, and automation boundaries separate.
-- **GitHub workout-tracker topic survey** (https://github.com/topics/workout-tracker) shows common tracker patterns: PR tracking, dashboards, exercise databases, imports from commercial apps, self-hosting, offline/privacy-first storage, and mobile-first logging. Relevant lesson: this repo should keep data portable and structured now, even if dashboards/imports are added later.
-- **Nous Hermes 4 research** (https://arxiv.org/abs/2508.18255 and https://huggingface.co/collections/NousResearch/hermes-4-collection) is model-level evidence for structured multi-turn reasoning and instruction following. Treat it as support for skill-buffering and explicit procedures, not as Hermes Agent runtime documentation.
-
-Design implication: the DB remains the source of truth; Python owns validation, reporting, coaching signals, and backup; Hermes skills are procedural wrappers only for interactive read/advisory intent.
-
-## Maintenance notes
-
-- Keep raw text intact
-- Normalize exercise names in code, not by rewriting user input
-- Backfill older rows when schema rules change: `uv run python scripts/backfill_structured.py`
-- Keep the repo copyable as-is, with SQLite and env vars being enough to restore it
-- Skills belong in the repo. Runtime Hermes memory does not; it is agent state and is not part of the database backup.
-- After changing models/normalizer/web form code, run `uv run pytest`
-- SQLite auto-ALTER in `ensure_db()` handles schema migration on startup; no manual DDL needed
+Runtime Hermes memory is not part of backup or restore. The repo plus `data/workouts.sqlite` and required env vars should be enough to restore the tracker.

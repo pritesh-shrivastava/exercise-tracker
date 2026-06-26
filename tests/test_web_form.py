@@ -142,6 +142,22 @@ def test_form_row_merges_plain_curl_names() -> None:
     assert preacher.equipment == "machine"
 
 
+def test_form_row_uses_custom_exercise_when_present() -> None:
+    row = form_row_from_values({
+        "workout_date": "2026-06-19",
+        "exercise": "Bodyweight Squat",
+        "custom_exercise": "sled push",
+        "variation": "default",
+        "sets": "4",
+        "reps": "20",
+        "weight_kg": "60",
+        "equipment": "machine",
+    })
+
+    assert row.exercise == "Sled Push"
+    assert row.equipment == "machine"
+
+
 def test_log_page_uses_grouped_exercise_select() -> None:
     html = render_log_page()
 
@@ -153,6 +169,7 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert html.count("<legend>Row ") == 6
     assert 'name="r1_workout_date"' not in html
     assert 'name="r6_exercise"' in html
+    assert 'name="r6_custom_exercise"' in html
     assert 'name="r1_sets" value="3"' in html
     assert 'name="r1_reps" value="12"' in html
     assert '<optgroup label="Legs" data-original-index=' in html
@@ -215,6 +232,21 @@ def test_post_rows_use_shared_workout_date() -> None:
 
     assert [row.workout_date for row in rows] == ["2026-06-18", "2026-06-18"]
     assert rows[1].exercise == "Barbell Deadlift"
+
+
+def test_post_rows_accept_custom_exercise_without_dropdown_choice() -> None:
+    rows = _rows_from_post({
+        "workout_date": ["2026-06-18"],
+        "r1_custom_exercise": ["sled push"],
+        "r1_variation": ["default"],
+        "r1_sets": ["4"],
+        "r1_reps": ["20"],
+        "r1_weight_kg": ["60"],
+        "r1_equipment": ["machine"],
+    })
+
+    assert len(rows) == 1
+    assert rows[0].exercise == "Sled Push"
 
 
 def test_form_submission_keeps_valid_rows_when_another_row_is_invalid() -> None:
