@@ -152,10 +152,28 @@ def test_form_row_uses_custom_exercise_when_present() -> None:
         "reps": "20",
         "weight_kg": "60",
         "equipment": "machine",
+        "body_part": "Legs",
     })
 
     assert row.exercise == "Sled Push"
     assert row.equipment == "machine"
+    assert row.body_part == "Legs"
+
+
+def test_form_row_tags_custom_exercise_body_part() -> None:
+    row = form_row_from_values({
+        "workout_date": "2026-06-19",
+        "custom_exercise": "straight arm cable pulldown",
+        "variation": "default",
+        "sets": "3",
+        "reps": "12",
+        "weight_kg": "25",
+        "equipment": "cable",
+        "body_part": "Back",
+    })
+
+    assert row.exercise == "Straight Arm Cable Pulldown"
+    assert row.body_part == "Back"
 
 
 def test_log_page_uses_grouped_exercise_select() -> None:
@@ -179,13 +197,14 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert '<optgroup label="Triceps" data-original-index=' in html
     assert '<optgroup label="Back" data-original-index=' in html
     assert 'value="Barbell Deadlift" data-equipment="barbell"' in html
-    assert 'value="Dumbbell Bench Press" data-equipment="dumbbells" data-per-hand="1"' in html
-    assert 'value="Weighted Lunge" data-equipment="dumbbells" data-per-hand="1"' in html
-    assert 'value="Goblet Squat" data-equipment="" data-per-hand="0"' in html
+    assert 'value="Dumbbell Bench Press" data-equipment="dumbbells" data-body-part="Chest" data-per-hand="1"' in html
+    assert 'value="Weighted Lunge" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="1"' in html
+    assert 'value="Goblet Squat" data-equipment="" data-body-part="Legs" data-per-hand="0"' in html
     assert 'value="Barbell Incline Press"' not in html
-    assert 'value="Bodyweight Squat" data-equipment="bodyweight"' in html
-    assert 'value="Kettlebell Swing" data-equipment="kettlebell"' in html
+    assert 'value="Bodyweight Squat" data-equipment="bodyweight" data-body-part="Legs"' in html
+    assert 'value="Kettlebell Swing" data-equipment="kettlebell" data-body-part="Legs"' in html
     assert "data-exercise-select" in html
+    assert 'name="r1_body_part"' in html
     assert 'value="Hammer Curl"' not in html
     assert 'value="Preacher Curl"' not in html
 

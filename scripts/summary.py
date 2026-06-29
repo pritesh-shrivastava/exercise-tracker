@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Workout summary, PR report, and coaching prompts.
+"""Workout summary, PR report, and advisory coaching prompts.
 
 Usage:
   python scripts/summary.py         # recent activity (last 5 entries)
@@ -24,9 +24,9 @@ DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Workout summary, PR report, and coaching prompts")
+    parser = argparse.ArgumentParser(description="Workout summary, PR report, and advisory coaching prompts")
     parser.add_argument("--prs", action="store_true", help="Show personal records by body part")
-    parser.add_argument("--coach", action="store_true", help="Show DB-backed advisory prompts for Telegram")
+    parser.add_argument("--coach", action="store_true", help="Show DB-backed advisory prompts")
     args = parser.parse_args()
 
     if args.prs and args.coach:

@@ -77,6 +77,7 @@ _CANONICAL: dict[str, str] = {
     "barbell shrug": "Barbell Shrug",
     "deadlift": "Barbell Deadlift",
     "barbell deadlift": "Barbell Deadlift",
+    "dumbbell romanian deadlift": "Dumbbell Romanian Deadlift",
     "chest supported row": "Chest Supported Rows",
     "chest supported rows": "Chest Supported Rows",
 }

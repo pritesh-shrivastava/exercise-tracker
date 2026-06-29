@@ -34,6 +34,7 @@ class PRRow:
     weight_kg: float | None = None
     equipment: str = ""
     per_hand: bool = False
+    body_part: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,10 @@ def body_part(exercise: str) -> str:
         "bench press", "incline press", "pec fly", "chest press", "chest fly",
         "push up", "pushup",
     ]
-    back = ["lat pull down", "lat pulldown", "row", "pullup", "pull up", "back extension", "deadlift"]
+    back = [
+        "lat pull down", "lat pulldown", "pulldown", "row", "pullup", "pull up",
+        "back extension", "deadlift",
+    ]
     back_exclude = ["upright row"]
     shoulders = [
         "shoulder press", "arnold press", "lateral raise", "front raise",
@@ -92,15 +96,28 @@ def body_part(exercise: str) -> str:
     return "Other"
 
 
+def row_body_part(exercise: str, stored_body_part: str | None = None) -> str:
+    """Return the saved body-part tag when valid, otherwise infer from exercise."""
+    if stored_body_part in BODY_PART_ORDER:
+        return stored_body_part
+    return body_part(exercise)
+
+
 def _load_rows(db_path: Path) -> list[PRRow]:
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(workouts)")}
+        body_part_select = (
+            "COALESCE(body_part, '') AS body_part"
+            if "body_part" in columns
+            else "'' AS body_part"
+        )
         rows = conn.execute(
-            """
+            f"""
             SELECT workout_date, exercise, COALESCE(variation, 'default') AS variation,
                    details, raw_text, COALESCE(sets, 0) AS sets, COALESCE(reps, 0) AS reps,
                    weight_kg, COALESCE(equipment, '') AS equipment,
-                   COALESCE(per_hand, 0) AS per_hand
+                   COALESCE(per_hand, 0) AS per_hand, {body_part_select}
             FROM workouts WHERE workout_type = 'strength'
             ORDER BY workout_date, id
             """
@@ -162,9 +179,15 @@ def _activity_by_body_part(db_path: Path, as_of: date) -> list[BodyPartActivity]
     start = as_of - timedelta(days=13)
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(workouts)")}
+        body_part_select = (
+            "COALESCE(body_part, '') AS body_part"
+            if "body_part" in columns
+            else "'' AS body_part"
+        )
         rows = conn.execute(
-            """
-            SELECT workout_date, exercise
+            f"""
+            SELECT workout_date, exercise, {body_part_select}
             FROM workouts
             WHERE workout_type = 'strength' AND workout_date <= ?
             ORDER BY workout_date, id
@@ -176,7 +199,7 @@ def _activity_by_body_part(db_path: Path, as_of: date) -> list[BodyPartActivity]
     entries_by_part: dict[str, int] = defaultdict(int)
     last_by_part: dict[str, str] = {}
     for row in rows:
-        part = body_part(row["exercise"])
+        part = row_body_part(row["exercise"], row["body_part"])
         workout_date = row["workout_date"]
         last_by_part[part] = max(last_by_part.get(part, ""), workout_date)
         try:
@@ -227,7 +250,7 @@ def _next_focus(activity: Iterable[BodyPartActivity]) -> list[BodyPartActivity]:
 
 
 def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
-    """DB-backed advisory prompts for Telegram coaching."""
+    """DB-backed advisory prompts for training focus."""
     if not db_path.exists():
         return "No database yet."
 
@@ -305,7 +328,7 @@ def format_stale_pr_increment_candidates(
 
     part_rank = {part: idx for idx, part in enumerate(BODY_PART_ORDER)}
     candidates.sort(key=lambda row: (
-        part_rank.get(body_part(row.exercise), len(part_rank)),
+        part_rank.get(row_body_part(row.exercise, row.body_part), len(part_rank)),
         row.exercise,
         row.variation,
     ))
@@ -315,7 +338,7 @@ def format_stale_pr_increment_candidates(
         "",
     ]
     for row in candidates:
-        part = body_part(row.exercise)
+        part = row_body_part(row.exercise, row.body_part)
         emoji = BODY_PART_EMOJI.get(part, "•")
         variation = f" [{row.variation}]" if row.variation not in ("", "default") else ""
         pr_date_label = datetime.strptime(row.workout_date, "%Y-%m-%d").strftime("%d %b %Y")
@@ -347,7 +370,7 @@ def pr_display_rows(db_path: Path) -> list[PRDisplayRow]:
     prs = _best_sets(rows)
     grouped: dict[str, dict[str, list[tuple[str, PRRow]]]] = defaultdict(lambda: defaultdict(list))
     for (exercise, variation), row in prs.items():
-        grouped[body_part(exercise)][exercise].append((variation, row))
+        grouped[row_body_part(exercise, row.body_part)][exercise].append((variation, row))
 
     seen = list(grouped.keys())
     order = [p for p in BODY_PART_ORDER if p in seen] + sorted(

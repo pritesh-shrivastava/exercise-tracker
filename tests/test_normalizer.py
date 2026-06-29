@@ -123,6 +123,7 @@ def test_rear_delt_in_raw():
     ("kettlebell swing", "Kettlebell Swing"),
     ("deadlift", "Barbell Deadlift"),
     ("barbell deadlift", "Barbell Deadlift"),
+    ("Dumbell Romanian Deadlift", "Dumbbell Romanian Deadlift"),
 ])
 def test_canonical(exercise, expected):
     assert normalize_exercise(exercise, "") == expected

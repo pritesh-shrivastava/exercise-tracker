@@ -25,6 +25,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from tracker.core import ensure_db, now_ist  # noqa: E402
 from tracker.models import (  # noqa: E402
+    BODY_PART_VALUES,
     EQUIPMENT_VALUES,
     VALID_VARIATIONS,
     WorkoutRecord,
@@ -32,7 +33,7 @@ from tracker.models import (  # noqa: E402
     validate_record,
 )
 from tracker.normalizer import normalize_exercise  # noqa: E402
-from tracker.reports import BODY_PART_ORDER, pr_display_rows  # noqa: E402
+from tracker.reports import BODY_PART_ORDER, pr_display_rows, row_body_part  # noqa: E402
 
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
@@ -153,6 +154,11 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Vertical Chest Press Machine": "machine",
     "Weighted Lunge": "dumbbells",
 }
+EXERCISE_DEFAULT_BODY_PART = {
+    exercise: group
+    for group, exercises in EXERCISE_GROUPS.items()
+    for exercise in exercises
+}
 EXERCISE_DEFAULT_PER_HAND = frozenset({
     "Dumbbell Arnold Press",
     "Dumbbell Bench Press",
@@ -187,6 +193,7 @@ EQUIPMENT_CHOICES = [
     "band",
     "other",
 ]
+BODY_PART_CHOICES = [""] + BODY_PART_ORDER
 LOG_ROW_COUNT = 6
 
 
@@ -200,6 +207,7 @@ class FormRow:
     weight_kg: float | None
     equipment: str
     per_hand: bool
+    body_part: str = ""
 
 
 @dataclass(frozen=True)
@@ -259,6 +267,9 @@ def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow
     equipment = values.get(f"{prefix}equipment", "").strip()
     if not equipment:
         equipment = EXERCISE_DEFAULT_EQUIPMENT.get(exercise, "")
+    selected_body_part = values.get(f"{prefix}body_part", "").strip()
+    default_body_part = EXERCISE_DEFAULT_BODY_PART.get(exercise, "")
+    body_part = selected_body_part or default_body_part or row_body_part(exercise)
     per_hand_key = f"{prefix}per_hand"
     per_hand_defaulted_key = f"{prefix}per_hand_defaulted"
     per_hand = values.get(per_hand_key, "") == "1"
@@ -273,6 +284,7 @@ def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow
         weight_kg=_parse_weight(values.get(f"{prefix}weight_kg", "")),
         equipment=equipment,
         per_hand=per_hand,
+        body_part=body_part,
     )
     _validate_form_row(row)
     return row
@@ -283,6 +295,8 @@ def _validate_form_row(row: FormRow) -> None:
         raise ValueError(f"invalid variation: {row.variation}")
     if row.equipment not in EQUIPMENT_VALUES:
         raise ValueError(f"invalid equipment: {row.equipment}")
+    if row.body_part not in BODY_PART_VALUES:
+        raise ValueError(f"invalid body part: {row.body_part}")
     rec = WorkoutRecord(
         "strength",
         row.exercise,
@@ -294,6 +308,7 @@ def _validate_form_row(row: FormRow) -> None:
         row.weight_kg,
         row.equipment,
         row.per_hand,
+        row.body_part,
     )
     validate_record(rec)
 
@@ -305,7 +320,7 @@ def _fetch_rows_by_ids(conn: sqlite3.Connection, row_ids: list[int]) -> list[sql
     return list(conn.execute(
         f"""
         SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
-               sets, reps, weight_kg, equipment, per_hand
+               sets, reps, weight_kg, equipment, per_hand, body_part
         FROM workouts
         WHERE id IN ({placeholders})
         ORDER BY id
@@ -327,8 +342,8 @@ def insert_form_rows(db_path: Path, rows: list[FormRow]) -> list[sqlite3.Row]:
                 """
                 INSERT INTO workouts
                 (logged_at, workout_date, workout_type, exercise, variation, details,
-                 raw_text, source, sets, reps, weight_kg, equipment, per_hand)
-                VALUES (?, ?, 'strength', ?, ?, ?, ?, 'form', ?, ?, ?, ?, ?)
+                 raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part)
+                VALUES (?, ?, 'strength', ?, ?, ?, ?, 'form', ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ts,
@@ -342,6 +357,7 @@ def insert_form_rows(db_path: Path, rows: list[FormRow]) -> list[sqlite3.Row]:
                     row.weight_kg,
                     row.equipment,
                     int(row.per_hand),
+                    row.body_part,
                 ),
             )
             if cur.lastrowid is None:
@@ -361,7 +377,7 @@ def update_form_row(db_path: Path, row_id: int, row: FormRow) -> sqlite3.Row:
             """
             UPDATE workouts
             SET workout_date = ?, exercise = ?, variation = ?, details = ?,
-                raw_text = ?, sets = ?, reps = ?, weight_kg = ?, equipment = ?, per_hand = ?
+                raw_text = ?, sets = ?, reps = ?, weight_kg = ?, equipment = ?, per_hand = ?, body_part = ?
             WHERE id = ? AND workout_type = 'strength'
             """,
             (
@@ -375,6 +391,7 @@ def update_form_row(db_path: Path, row_id: int, row: FormRow) -> sqlite3.Row:
                 row.weight_kg,
                 row.equipment,
                 int(row.per_hand),
+                row.body_part,
                 row_id,
             ),
         )
@@ -405,7 +422,7 @@ def fetch_today_rows(db_path: Path, workout_date: str | None = None) -> list[sql
         return list(conn.execute(
             """
             SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
-                   sets, reps, weight_kg, equipment, per_hand
+                   sets, reps, weight_kg, equipment, per_hand, body_part
             FROM workouts
             WHERE workout_date = ? AND workout_type = 'strength'
             ORDER BY id DESC
@@ -421,7 +438,7 @@ def fetch_recent_rows(db_path: Path, limit: int = 10) -> list[sqlite3.Row]:
         return list(conn.execute(
             """
             SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
-                   sets, reps, weight_kg, equipment, per_hand
+                   sets, reps, weight_kg, equipment, per_hand, body_part
             FROM workouts
             WHERE workout_type = 'strength'
             ORDER BY id DESC
@@ -481,6 +498,7 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
                     "reps",
                     "weight_kg",
                     "equipment",
+                    "body_part",
                     "per_hand",
                     "per_hand_defaulted",
                 )
@@ -603,12 +621,15 @@ def _layout(title: str, body: str) -> str:
       const row = select.closest('.grid');
       if (!selected || !row) return;
       const equipment = selected.dataset.equipment || '';
+      const bodyPart = selected.dataset.bodyPart || '';
       const perHand = selected.dataset.perHand === '1';
       const equipmentSelect = row.querySelector('select[name$="equipment"]');
+      const bodyPartSelect = row.querySelector('select[name$="body_part"]');
       const weightInput = row.querySelector('input[name$="weight_kg"]');
       const perHandInput = row.querySelector('input[name$="per_hand"]');
       const perHandDefaultedInput = row.querySelector('input[name$="per_hand_defaulted"]');
       if (equipmentSelect && equipment) equipmentSelect.value = equipment;
+      if (bodyPartSelect && bodyPart) bodyPartSelect.value = bodyPart;
       if (weightInput && equipment === 'bodyweight') weightInput.value = '';
       if (perHandInput) perHandInput.checked = perHand;
       if (perHandDefaultedInput) perHandDefaultedInput.value = perHand ? '1' : '0';
@@ -661,10 +682,12 @@ def _exercise_options(selected: str) -> str:
         for exercise in exercises:
             seen.add(exercise)
             equipment = EXERCISE_DEFAULT_EQUIPMENT.get(exercise, "")
+            body_part = EXERCISE_DEFAULT_BODY_PART.get(exercise, "")
             is_selected = " selected" if exercise == selected else ""
             per_hand = "1" if exercise in EXERCISE_DEFAULT_PER_HAND else "0"
             options.append(
                 f'<option value="{_escape(exercise)}" data-equipment="{_escape(equipment)}"'
+                f' data-body-part="{_escape(body_part)}"'
                 f' data-per-hand="{per_hand}"{is_selected}>'
                 f"{_escape(exercise)}</option>"
             )
@@ -692,6 +715,7 @@ def _row_fields(
     weight = values.get("weight_kg", "")
     custom_exercise = values.get("custom_exercise", "")
     equipment = values.get("equipment", "") or EXERCISE_DEFAULT_EQUIPMENT.get(str(exercise), "")
+    body_part = values.get("body_part", "") or EXERCISE_DEFAULT_BODY_PART.get(str(exercise), "")
     default_per_hand = row is None and str(exercise) in EXERCISE_DEFAULT_PER_HAND
     checked_value = values.get("per_hand", 0)
     checked = " checked" if checked_value in (1, "1", True) or default_per_hand else ""
@@ -715,6 +739,7 @@ def _row_fields(
   <label>Reps<input inputmode="numeric" name="{prefix}reps" value="{_escape(reps)}"></label>
   <label>Weight kg<input inputmode="decimal" name="{prefix}weight_kg" value="{_escape(weight)}"></label>
   <label>Equipment<select name="{prefix}equipment">{_options(EQUIPMENT_CHOICES, str(equipment))}</select></label>
+  <label>Body part<select name="{prefix}body_part">{_options(BODY_PART_CHOICES, str(body_part))}</select></label>
   <label class="check"><span>Per hand</span><input type="checkbox" name="{prefix}per_hand" value="1"{checked}></label>
   <input type="hidden" name="{prefix}per_hand_defaulted" value="{defaulted}">
 </div>"""
@@ -733,13 +758,13 @@ def _render_rows(rows: list[sqlite3.Row], *, include_id: bool = True) -> str:
             "<tr>"
             f"{id_cell}<td>{_escape(row['workout_date'])}</td><td>{_escape(row['exercise'])}</td>"
             f"<td>{_escape(variation)}</td><td>{row['sets']}×{row['reps']}</td><td>{_escape(weight)}</td>"
-            f"<td>{_escape(row['equipment'])}</td><td>{per_hand}</td>"
+            f"<td>{_escape(row['equipment'])}</td><td>{_escape(row['body_part'])}</td><td>{per_hand}</td>"
             "</tr>"
         )
     id_header = "<th>ID</th>" if include_id else ""
     return (
         f"<table><thead><tr>{id_header}<th>Date</th><th>Exercise</th><th>Var</th><th>Sets</th>"
-        "<th>Kg</th><th>Equip</th><th>Each</th></tr></thead><tbody>"
+        "<th>Kg</th><th>Equip</th><th>Part</th><th>Each</th></tr></thead><tbody>"
         + "".join(body)
         + "</tbody></table>"
     )

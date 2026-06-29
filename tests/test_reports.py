@@ -28,6 +28,7 @@ def _insert_strength(
     variation: str = "default",
     equipment: str = "machine",
     per_hand: bool = False,
+    body_part: str = "",
 ) -> None:
     ensure_db(db)
     with sqlite3.connect(db) as conn:
@@ -35,8 +36,8 @@ def _insert_strength(
             """
             INSERT INTO workouts
             (logged_at, workout_date, workout_type, exercise, variation, details,
-             raw_text, source, sets, reps, weight_kg, equipment, per_hand)
-            VALUES (?, ?, 'strength', ?, ?, ?, ?, 'test', ?, ?, ?, ?, ?)
+             raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part)
+            VALUES (?, ?, 'strength', ?, ?, ?, ?, 'test', ?, ?, ?, ?, ?, ?)
             """,
             (
                 f"{workout_date}T00:00:00+05:30",
@@ -50,6 +51,7 @@ def _insert_strength(
                 weight_kg,
                 equipment,
                 int(per_hand),
+                body_part,
             ),
         )
         conn.commit()
@@ -98,6 +100,10 @@ def test_body_part_rear_delt_not_back():
 
 def test_body_part_leg_curl_not_biceps():
     assert body_part("Hamstring Curl") == "Legs"
+
+
+def test_body_part_pulldown_is_back():
+    assert body_part("Straight Arm Cable Pulldown") == "Back"
 
 
 # --- Date formatting ---
@@ -197,6 +203,26 @@ def test_format_prs_groups_by_body_part(tmp_path):
     result = format_prs(db)
     assert "🩻" in result  # Chest
     assert "🦵" in result  # Legs
+
+
+def test_format_prs_uses_stored_body_part_tag(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Custom Pulley Thing",
+        details="3x12 @ 25kg",
+        sets=3,
+        reps=12,
+        weight_kg=25,
+        equipment="cable",
+        body_part="Back",
+    )
+
+    result = format_prs(db)
+
+    assert result.startswith("🧱")
+    assert "Custom Pulley Thing" in result
 
 
 def test_format_prs_picks_highest_weight_from_structured(tmp_path: Path):

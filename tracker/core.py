@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from tracker.reports import body_part
+from tracker.reports import BODY_PART_ORDER, body_part, row_body_part
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -35,7 +35,8 @@ def ensure_db(db_path: Path) -> None:
                 reps INTEGER DEFAULT 0,
                 weight_kg REAL,
                 equipment TEXT NOT NULL DEFAULT '',
-                per_hand INTEGER DEFAULT 0
+                per_hand INTEGER DEFAULT 0,
+                body_part TEXT NOT NULL DEFAULT ''
             )
             """
         )
@@ -54,16 +55,28 @@ def ensure_db(db_path: Path) -> None:
              None),
             ("per_hand", "ALTER TABLE workouts ADD COLUMN per_hand INTEGER DEFAULT 0",
              None),
+            ("body_part", "ALTER TABLE workouts ADD COLUMN body_part TEXT NOT NULL DEFAULT ''",
+             None),
         ]
         for col, add_sql, update_sql in migrations:
             if col not in columns:
                 conn.execute(add_sql)
                 if update_sql:
                     conn.execute(update_sql)
+        for row in conn.execute(
+            "SELECT id, exercise, body_part FROM workouts WHERE body_part IS NULL OR body_part = ''"
+        ):
+            conn.execute(
+                "UPDATE workouts SET body_part = ? WHERE id = ?",
+                (body_part(row[1]), row[0]),
+            )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(workout_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_type ON workouts(workout_type)")
-        conn.execute("""
-        CREATE TRIGGER IF NOT EXISTS workouts_validate_insert
+        valid_body_parts = "', '".join(BODY_PART_ORDER)
+        conn.execute("DROP TRIGGER IF EXISTS workouts_validate_insert")
+        conn.execute("DROP TRIGGER IF EXISTS workouts_validate_update")
+        conn.execute(f"""
+        CREATE TRIGGER workouts_validate_insert
         BEFORE INSERT ON workouts
         BEGIN
           SELECT CASE
@@ -74,10 +87,14 @@ def ensure_db(db_path: Path) -> None:
             WHEN NEW.per_hand = 1 AND NEW.equipment <> 'dumbbells'
             THEN RAISE(ABORT, 'per_hand requires dumbbells')
           END;
+          SELECT CASE
+            WHEN NEW.body_part <> '' AND NEW.body_part NOT IN ('{valid_body_parts}')
+            THEN RAISE(ABORT, 'invalid body_part')
+          END;
         END
         """)
-        conn.execute("""
-        CREATE TRIGGER IF NOT EXISTS workouts_validate_update
+        conn.execute(f"""
+        CREATE TRIGGER workouts_validate_update
         BEFORE UPDATE ON workouts
         BEGIN
           SELECT CASE
@@ -88,6 +105,10 @@ def ensure_db(db_path: Path) -> None:
             WHEN NEW.per_hand = 1 AND NEW.equipment <> 'dumbbells'
             THEN RAISE(ABORT, 'per_hand requires dumbbells')
           END;
+          SELECT CASE
+            WHEN NEW.body_part <> '' AND NEW.body_part NOT IN ('{valid_body_parts}')
+            THEN RAISE(ABORT, 'invalid body_part')
+          END;
         END
         """)
         conn.commit()
@@ -97,6 +118,7 @@ def fetch_recent_activity(db_path: Path, recent_limit: int = 5) -> dict:
     if not db_path.exists():
         return {"exists": False}
 
+    ensure_db(db_path)
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
 
@@ -113,7 +135,7 @@ def fetch_recent_activity(db_path: Path, recent_limit: int = 5) -> dict:
         # Last N distinct dates, most recent first
         recent = conn.execute(
             "SELECT workout_date, workout_type, exercise, variation, details,"
-            " sets, reps, weight_kg, equipment, per_hand, raw_text"
+            " sets, reps, weight_kg, equipment, per_hand, body_part, raw_text"
             " FROM workouts WHERE workout_date IN ("
             "  SELECT DISTINCT workout_date FROM workouts ORDER BY workout_date DESC LIMIT ?"
             ") ORDER BY workout_date DESC, id",
@@ -153,7 +175,7 @@ def format_recent_activity(summary: dict) -> str:
     # Pre-compute body-part label per date
     date_parts: dict[str, set[str]] = {}
     for row in summary["recent"]:
-        date_parts.setdefault(row["workout_date"], set()).add(body_part(row["exercise"]))
+        date_parts.setdefault(row["workout_date"], set()).add(row_body_part(row["exercise"], row.get("body_part")))
     last_date = None
     for row in summary["recent"]:
         variation = f" [{row['variation']}]" if row.get("variation") and row["variation"] not in ("default", "") else ""

@@ -1,6 +1,6 @@
 # exercise-tracker
 
-Personal workout tracker. Primary interface is the private mobile web form over Tailscale. Hermes Agent is for summaries, PRs, backups, DB inspection, and advisory coaching from past data. Python + SQLite. No external runtime dependencies.
+Personal workout tracker. Primary interface is the private mobile web form over Tailscale. Reporting, backups, DB inspection, and advisory coaching run through local scripts and SQLite. Python + SQLite. No external runtime dependencies.
 
 ## Quick commands
 
@@ -8,7 +8,7 @@ Personal workout tracker. Primary interface is the private mobile web form over 
 uv run python scripts/summary.py                           # recent activity
 uv run python scripts/summary.py --prs                     # personal records (compact, one line per exercise)
 uv run python scripts/summary.py --coach                   # DB-backed advisory coaching prompts
-uv run python scripts/web_form.py --host 127.0.0.1  # local form; production uses systemd + Tailscale Serve
+uv run python scripts/web_form.py --host 127.0.0.1 --port 8765  # local form; production uses systemd + Tailscale Serve
 uv run pytest                                         # run tests
 uv run ruff check .                                   # lint
 uv run mypy tracker/ scripts/summary.py scripts/web_form.py  # type check
@@ -23,7 +23,6 @@ sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 tracker/          — core library (models, normalizer, core DB helpers, PR reports)
 scripts/          — entry points and utilities (summary.py, web_form.py, backfill_structured.py, backup_db.py, restore_db.sh)
 tests/            — pytest suite (test_normalizer.py, test_reports.py, test_web_form.py)
-skills/           — Hermes agent SKILL.md definitions (workout-summary, query-db)
 query_db.py       — does not exist; use `sqlite3 data/workouts.sqlite` directly
 design.md         — data model, variation rules, logging behaviour
 ```
@@ -32,20 +31,22 @@ design.md         — data model, variation rules, logging behaviour
 
 - **Weight stored as total** (not per-hand), with `per_hand` boolean flag
 - **DB path**: `data/workouts.sqlite` in repo root
-- **14 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand
+- **15 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part
 - **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
 - **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
+- **Web form port**: always use/restart the canonical `127.0.0.1:8765` service. If the port is busy, restart the existing service/process on `8765`; do not start a second form server on a different port.
 
-## Skill routing
+## Workflow routing
 
-When the user's request matches an available exercise-tracker skill, invoke it via the skill tool. Workout data entry is form-only; use Hermes for summaries, PRs, coaching, and raw DB inspection:
+Workout data entry is form-only. Do not parse pasted workouts into DB rows and do not mutate `data/workouts.sqlite` from chat unless the user explicitly asks for a direct DB maintenance operation.
 
-- User pastes workout lines → do not log them; direct them to the private form URL
-- User asks for summary, PRs, stats, progress, coaching, or what to train next → load `workout-summary` skill
-- User asks to see the table, DB, rows, browse data, top N, last N → load `query-db` skill
+- User pastes workout lines → do not log them; direct them to the private form URL.
+- User asks for summary, PRs, stats, progress, coaching, or what to train next → use `uv run python scripts/summary.py` with the appropriate flag.
+- User asks to see the table, DB, rows, browse data, top N, last N → use `sqlite3 data/workouts.sqlite` directly.
+- Backups → use `uv run python scripts/backup_db.py` from cron/systemd or an explicit shell session.
 
-Backups are not a Hermes skill; use `uv run python scripts/backup_db.py` from cron/systemd or an explicit shell session. Hermes via Telegram is advisory/read-only for workout rows: it may look at past SQLite data to suggest next focus, stale PR progression candidates, and consistency notes, but it must not invent from memory or mutate `data/workouts.sqlite`. Do not use sub-agents for workout updates or DB queries. Sub-agents may only be used for code fixes or audits, never for mutating `data/workouts.sqlite`.
+Do not use sub-agents for workout updates or DB queries. Sub-agents may only be used for code fixes or audits, never for mutating `data/workouts.sqlite`.
 
 ## Health Stack
 

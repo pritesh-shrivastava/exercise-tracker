@@ -18,6 +18,7 @@ class WorkoutRecord:
     weight_kg: float | None = None
     equipment: str = ""
     per_hand: bool = False
+    body_part: str = ""
 
 
 VALID_VARIATIONS = frozenset({"default", "flat", "incline", "decline", "short grip", "wide grip"})
@@ -25,6 +26,7 @@ EQUIPMENT_VALUES = frozenset({
     "dumbbells", "barbell", "machine", "cable", "bodyweight",
     "kettlebell", "smith machine", "band", "other", "",
 })
+BODY_PART_VALUES = frozenset({"Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Other", ""})
 
 
 def format_details(sets: int, reps: int, weight_kg: float | None) -> str:
@@ -45,6 +47,8 @@ def validate_record(rec: WorkoutRecord) -> None:
         raise ValueError(f"Negative weight: {rec}")
     if rec.equipment not in EQUIPMENT_VALUES:
         raise ValueError(f"Invalid equipment: {rec.equipment!r}")
+    if rec.body_part not in BODY_PART_VALUES:
+        raise ValueError(f"Invalid body_part: {rec.body_part!r}")
     if rec.variation in EQUIPMENT_VALUES:
         raise ValueError(f"Invalid variation; Equipment leaked into variation: {rec}")
     if rec.variation not in VALID_VARIATIONS:

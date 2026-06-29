@@ -19,7 +19,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = REPO_ROOT / "data" / "workouts.sqlite"
-ENV_PATH = Path.home() / ".hermes" / ".env"
+ENV_PATH = REPO_ROOT / ".env"
 
 
 def load_env_file(path: Path = ENV_PATH) -> None:
