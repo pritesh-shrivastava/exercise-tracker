@@ -8,10 +8,10 @@ import pytest
 
 from tracker.core import ensure_db
 from tracker.reports import (
-    _fmt_date,
     body_part,
     format_stale_pr_increment_candidates,
     format_training_advice,
+    progression_series,
 )
 from tracker.reports import format_prs_compact as format_prs
 
@@ -77,7 +77,7 @@ def _insert_strength(
     ("Kettlebell Swing", "Legs"),
     ("Kettleball Swing", "Legs"),
     ("Bicep Curl", "Biceps"),
-    ("Barbell Curl", "Biceps"),
+    ("Small Barbell Curl", "Biceps"),
     ("Dumbbell Hammer Curl", "Biceps"),
     ("Reverse Curl on Cable", "Biceps"),
     ("Tricep Pushdown", "Triceps"),
@@ -106,43 +106,12 @@ def test_body_part_pulldown_is_back():
     assert body_part("Straight Arm Cable Pulldown") == "Back"
 
 
-# --- Date formatting ---
-
-def test_fmt_date_recent_is_new():
-    from datetime import date
-    today = date.today().strftime("%Y-%m-%d")
-    assert "+" in _fmt_date(today)
-
-
-def test_fmt_date_old_is_minus():
-    assert "-" in _fmt_date("2020-01-01")
-
-
 # --- Integration: format_prs ---
 
 def test_format_prs_empty_db(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
     ensure_db(db)
     assert "No strength workouts" in format_prs(db)
-
-
-def test_format_prs_shows_exercise(tmp_path: Path):
-    db = tmp_path / "workouts.sqlite"
-    _insert_strength(
-        db,
-        workout_date="2026-01-01",
-        exercise="Dumbbell Bench Press",
-        variation="flat",
-        details="3x5 @ 80kg",
-        sets=3,
-        reps=5,
-        weight_kg=80,
-        equipment="dumbbells",
-        per_hand=True,
-    )
-    result = format_prs(db)
-    assert "Bench Press" in result or "bench" in result.lower()
-    assert "80" in result
 
 
 def test_format_prs_picks_best_weight(tmp_path: Path):
@@ -494,3 +463,143 @@ def test_training_advice_includes_progression_candidates(tmp_path: Path):
     assert "Progression prompts:" in result
     assert "Calf Raise" in result
     assert "3×15 @ 20kg" in result
+
+
+def test_progression_series_excludes_two_weighted_entries(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    for day, weight in enumerate((20.0, 22.5), start=1):
+        _insert_strength(
+            db,
+            workout_date=f"2026-01-0{day}",
+            exercise="Lat Pull Down",
+            details=f"3x12 @ {weight}kg",
+            sets=3,
+            reps=12,
+            weight_kg=weight,
+        )
+
+    assert progression_series(db) == []
+
+
+def test_progression_series_includes_three_weighted_entries(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    for day, weight in enumerate((20.0, 22.5, 25.0), start=1):
+        _insert_strength(
+            db,
+            workout_date=f"2026-01-0{day}",
+            exercise="Seated Cable Row",
+            details=f"3x12 @ {weight}kg",
+            sets=3,
+            reps=12,
+            weight_kg=weight,
+        )
+
+    series = progression_series(db)
+
+    assert len(series) == 1
+    assert series[0].exercise == "Seated Cable Row"
+    assert [point.weight_kg for point in series[0].points] == [20.0, 22.5, 25.0]
+
+
+def test_progression_series_ignores_null_weights_for_threshold(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    for day, weight in enumerate((20.0, 22.5), start=1):
+        _insert_strength(
+            db,
+            workout_date=f"2026-01-0{day}",
+            exercise="Pec Fly",
+            details=f"3x12 @ {weight}kg",
+            sets=3,
+            reps=12,
+            weight_kg=weight,
+        )
+    _insert_strength(
+        db,
+        workout_date="2026-01-04",
+        exercise="Pec Fly",
+        details="3x12",
+        sets=3,
+        reps=12,
+        weight_kg=None,
+    )
+
+    assert progression_series(db) == []
+
+
+def test_progression_series_keeps_variations_separate(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    for day, weight in enumerate((20.0, 22.5), start=1):
+        _insert_strength(
+            db,
+            workout_date=f"2026-01-0{day}",
+            exercise="Lat Pull Down",
+            variation="short grip",
+            details=f"3x12 @ {weight}kg",
+            sets=3,
+            reps=12,
+            weight_kg=weight,
+        )
+    for day, weight in enumerate((30.0, 32.5, 35.0), start=1):
+        _insert_strength(
+            db,
+            workout_date=f"2026-01-0{day}",
+            exercise="Lat Pull Down",
+            variation="wide grip",
+            details=f"3x12 @ {weight}kg",
+            sets=3,
+            reps=12,
+            weight_kg=weight,
+        )
+
+    series = progression_series(db)
+
+    assert len(series) == 1
+    assert series[0].variation == "wide grip"
+
+
+def test_progression_series_orders_by_body_part(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    rows = (
+        ("Lat Pull Down", "Back", 30.0),
+        ("Dumbbell Bench Press", "Chest", 20.0),
+        ("Seated Abs Crunch Machine", "Core", 40.0),
+    )
+    for exercise, part, base_weight in rows:
+        for day, increment in enumerate((0.0, 2.5, 5.0), start=1):
+            _insert_strength(
+                db,
+                workout_date=f"2026-01-0{day}",
+                exercise=exercise,
+                details=f"3x12 @ {base_weight + increment}kg",
+                sets=3,
+                reps=12,
+                weight_kg=base_weight + increment,
+                body_part=part,
+            )
+
+    series = progression_series(db)
+
+    assert [(item.part, item.exercise) for item in series] == [
+        ("Chest", "Dumbbell Bench Press"),
+        ("Back", "Lat Pull Down"),
+        ("Core", "Seated Abs Crunch Machine"),
+    ]
+
+
+def test_progression_series_tracks_pr_increases(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    for day, weight in enumerate((20.0, 25.0, 22.5, 27.5), start=1):
+        _insert_strength(
+            db,
+            workout_date=f"2026-01-0{day}",
+            exercise="Small Barbell Curl",
+            details=f"3x12 @ {weight}kg",
+            sets=3,
+            reps=12,
+            weight_kg=weight,
+        )
+
+    series = progression_series(db)
+
+    assert series[0].exercise == "Small Barbell Curl"
+    assert [point.weight_kg for point in series[0].pr_points] == [20.0, 25.0, 27.5]

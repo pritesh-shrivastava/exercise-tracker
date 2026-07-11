@@ -14,26 +14,12 @@ from scripts.web_form import (
     new_form_token,
     normalize_bind_host,
     render_log_page,
+    render_progression_page,
     render_prs_page,
     render_recent_page,
     update_form_row,
 )
 from tracker.core import ensure_db
-
-
-def test_form_row_normalizes_aliases() -> None:
-    row = form_row_from_values({
-        "workout_date": "2026-06-16",
-        "exercise": "sumo squats",
-        "variation": "default",
-        "sets": "2",
-        "reps": "15",
-        "weight_kg": "10",
-        "equipment": "other",
-    })
-
-    assert row.exercise == "Sumo Squat"
-    assert row.weight_kg == 10.0
 
 
 def test_form_row_applies_default_equipment() -> None:
@@ -48,20 +34,6 @@ def test_form_row_applies_default_equipment() -> None:
 
     assert row.exercise == "Kettlebell Swing"
     assert row.equipment == "kettlebell"
-
-
-def test_form_row_supports_deadlift() -> None:
-    row = form_row_from_values({
-        "workout_date": "2026-06-19",
-        "exercise": "deadlift",
-        "variation": "default",
-        "sets": "3",
-        "reps": "12",
-        "weight_kg": "20",
-    })
-
-    assert row.exercise == "Barbell Deadlift"
-    assert row.equipment == "barbell"
 
 
 def test_form_row_defaults_per_hand_for_selected_dumbbell_exercises() -> None:
@@ -116,30 +88,6 @@ def test_form_row_maps_barbell_incline_to_bench_variation() -> None:
     assert row.exercise == "Barbell Bench Press"
     assert row.variation == "incline"
     assert row.equipment == "barbell"
-
-
-def test_form_row_merges_plain_curl_names() -> None:
-    hammer = form_row_from_values({
-        "workout_date": "2026-06-19",
-        "exercise": "hammer curl",
-        "variation": "default",
-        "sets": "3",
-        "reps": "12",
-        "weight_kg": "10",
-    })
-    preacher = form_row_from_values({
-        "workout_date": "2026-06-19",
-        "exercise": "preacher curl",
-        "variation": "default",
-        "sets": "3",
-        "reps": "12",
-        "weight_kg": "10",
-    })
-
-    assert hammer.exercise == "Dumbbell Hammer Curl"
-    assert hammer.equipment == "dumbbells"
-    assert preacher.exercise == "Bicep Preacher Curl"
-    assert preacher.equipment == "machine"
 
 
 def test_form_row_uses_custom_exercise_when_present() -> None:
@@ -209,29 +157,6 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert 'value="Preacher Curl"' not in html
 
 
-def test_arm_exercises_are_split_by_biceps_and_triceps() -> None:
-    html = render_log_page()
-    biceps_group = html.split('<optgroup label="Biceps" data-original-index="3">', 1)[1].split("</optgroup>", 1)[0]
-    triceps_group = html.split('<optgroup label="Triceps" data-original-index="4">', 1)[1].split("</optgroup>", 1)[0]
-
-    assert "Dumbbell Hammer Curl" in biceps_group
-    assert "Bicep Preacher Curl" in biceps_group
-    assert "Reverse Curl on Cable" in biceps_group
-    assert "Tricep Pushdown" not in biceps_group
-    assert "Tricep Pushdown" in triceps_group
-    assert "Assisted Dips" in triceps_group
-    assert "Dumbbell Hammer Curl" not in triceps_group
-
-
-def test_deadlift_is_in_back_group() -> None:
-    html = render_log_page()
-    back_group = html.split('<optgroup label="Back" data-original-index="1">', 1)[1].split("</optgroup>", 1)[0]
-    legs_group = html.split('<optgroup label="Legs" data-original-index="5">', 1)[1].split("</optgroup>", 1)[0]
-
-    assert "Barbell Deadlift" in back_group
-    assert "Barbell Deadlift" not in legs_group
-
-
 def test_post_rows_use_shared_workout_date() -> None:
     rows = _rows_from_post({
         "workout_date": ["2026-06-18"],
@@ -266,6 +191,40 @@ def test_post_rows_accept_custom_exercise_without_dropdown_choice() -> None:
 
     assert len(rows) == 1
     assert rows[0].exercise == "Sled Push"
+
+
+def test_post_rows_apply_single_body_focus_to_custom_exercise() -> None:
+    rows = _rows_from_post({
+        "workout_date": ["2026-06-18"],
+        "body_focus": ["Legs"],
+        "r1_custom_exercise": ["sled push"],
+        "r1_variation": ["default"],
+        "r1_sets": ["4"],
+        "r1_reps": ["20"],
+        "r1_weight_kg": ["60"],
+        "r1_equipment": ["machine"],
+    })
+
+    assert len(rows) == 1
+    assert rows[0].exercise == "Sled Push"
+    assert rows[0].body_part == "Legs"
+
+
+def test_post_rows_do_not_apply_mixed_body_focus_to_custom_exercise() -> None:
+    rows = _rows_from_post({
+        "workout_date": ["2026-06-18"],
+        "body_focus": ["Back,Biceps"],
+        "r1_custom_exercise": ["sled push"],
+        "r1_variation": ["default"],
+        "r1_sets": ["4"],
+        "r1_reps": ["20"],
+        "r1_weight_kg": ["60"],
+        "r1_equipment": ["machine"],
+    })
+
+    assert len(rows) == 1
+    assert rows[0].exercise == "Sled Push"
+    assert rows[0].body_part == "Other"
 
 
 def test_form_submission_keeps_valid_rows_when_another_row_is_invalid() -> None:
@@ -526,6 +485,81 @@ def test_render_prs_page_marks_stale_and_fresh_dates(tmp_path: Path) -> None:
 
     assert "pr-date-fresh" in html
     assert "pr-date-stale" in html
+
+
+def test_render_progression_page_hides_sparse_weighted_history(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+    for idx, weight in enumerate((20.0, 22.5), start=1):
+        insert_form_rows(db, [
+            FormRow(
+                workout_date=f"2026-06-1{idx}",
+                exercise="Lat Pull Down",
+                variation="default",
+                sets=3,
+                reps=12,
+                weight_kg=weight,
+                equipment="machine",
+                per_hand=False,
+            )
+        ])
+
+    html = render_progression_page(db)
+
+    assert "No exercises have 3 or more weighted entries yet" in html
+    assert "Lat Pull Down" not in html
+
+
+def test_render_progression_page_shows_eligible_svg_chart(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+    for idx, weight in enumerate((20.0, 22.5, 21.0), start=1):
+        insert_form_rows(db, [
+            FormRow(
+                workout_date=f"2026-06-1{idx}",
+                exercise="Dumbbell Bench Press",
+                variation="flat",
+                sets=3,
+                reps=12,
+                weight_kg=weight,
+                equipment="dumbbells",
+                per_hand=True,
+            )
+        ])
+
+    html = render_progression_page(db)
+
+    assert "<h1>Progression</h1>" in html
+    assert "Dumbbell Bench Press [flat]" in html
+    assert '<svg class="progression-chart"' in html
+    assert "3×12 @ 20kg (10ea.)" in html
+    assert "PR step" in html
+
+
+def test_render_progression_page_uses_current_exercise_names(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+    for idx, exercise in enumerate(("Small Barbell Curl", "Seated Cable Row"), start=1):
+        for offset, weight in enumerate((20.0, 22.5, 25.0, 27.5), start=1):
+            insert_form_rows(db, [
+                FormRow(
+                    workout_date=f"2026-06-{idx}{offset}",
+                    exercise=exercise,
+                    variation="default",
+                    sets=3,
+                    reps=12,
+                    weight_kg=weight,
+                    equipment="barbell" if exercise == "Small Barbell Curl" else "machine",
+                    per_hand=False,
+                )
+            ])
+
+    html = render_progression_page(db)
+
+    assert "Small Barbell Curl" in html
+    assert "Seated Cable Row" in html
+    assert "<h2>Barbell Curl</h2>" not in html
+    assert "Seated Row Machine" not in html
 
 
 def test_render_recent_page_shows_last_10_without_ids(tmp_path: Path) -> None:

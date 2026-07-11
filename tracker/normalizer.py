@@ -31,7 +31,7 @@ _CANONICAL: dict[str, str] = {
     "horizontal row": "Chest Supported Rows",
     "horizontal rows": "Chest Supported Rows",
     "seated horizontal row": "Chest Supported Rows",
-    "seated row machine": "Seated Row Machine",
+    "seated row machine": "Seated Cable Row",
     "horizontal leg press": "Horizontal Leg Press",
     "barbell incline press": "Barbell Bench Press",
     "barbell incline bench press": "Barbell Bench Press",

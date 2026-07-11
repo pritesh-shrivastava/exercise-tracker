@@ -33,7 +33,14 @@ from tracker.models import (  # noqa: E402
     validate_record,
 )
 from tracker.normalizer import normalize_exercise  # noqa: E402
-from tracker.reports import BODY_PART_ORDER, pr_display_rows, row_body_part  # noqa: E402
+from tracker.reports import (  # noqa: E402
+    BODY_PART_ORDER,
+    ProgressionPoint,
+    ProgressionSeries,
+    pr_display_rows,
+    progression_series,
+    row_body_part,
+)
 
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
@@ -56,7 +63,7 @@ EXERCISE_GROUPS = {
         "Compound Row Machine",
         "Dumbbell Rows",
         "Lat Pull Down",
-        "Seated Row Machine",
+        "Seated Cable Row",
     ],
     "Shoulders": [
         "Cable Rope Upright Row",
@@ -69,7 +76,7 @@ EXERCISE_GROUPS = {
         "Rear Delt Fly",
     ],
     "Biceps": [
-        "Barbell Curl",
+        "Small Barbell Curl",
         "Bicep Curl on Cable",
         "Bicep Preacher Curl",
         "Dumbbell Bicep Curl",
@@ -113,7 +120,7 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Assisted Dips": "machine",
     "Assisted Pull Up": "machine",
     "Barbell Bench Press": "barbell",
-    "Barbell Curl": "barbell",
+    "Small Barbell Curl": "barbell",
     "Barbell Deadlift": "barbell",
     "Barbell Squat": "barbell",
     "Bicep Curl on Cable": "cable",
@@ -148,7 +155,7 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Rear Delt Fly": "machine",
     "Reverse Curl on Cable": "cable",
     "Seated Abs Crunch Machine": "machine",
-    "Seated Row Machine": "machine",
+    "Seated Cable Row": "machine",
     "Situps": "bodyweight",
     "Tricep Pushdown": "cable",
     "Vertical Chest Press Machine": "machine",
@@ -476,6 +483,8 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
     invalid_rows: list[InvalidFormRow] = []
     flattened = _flatten_form(data)
     shared_date = flattened.get("workout_date", "").strip()
+    shared_body_focus = flattened.get("body_focus", "")
+    default_body_part = shared_body_focus if shared_body_focus in BODY_PART_ORDER else ""
     for idx in range(1, LOG_ROW_COUNT + 1):
         prefix = f"r{idx}_"
         row_fields = ("exercise", "custom_exercise", "sets", "reps", "weight_kg")
@@ -484,6 +493,8 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
         prefixed_values = dict(flattened)
         if shared_date and not prefixed_values.get(f"{prefix}workout_date"):
             prefixed_values[f"{prefix}workout_date"] = shared_date
+        if default_body_part and not prefixed_values.get(f"{prefix}body_part"):
+            prefixed_values[f"{prefix}body_part"] = default_body_part
         try:
             rows.append(form_row_from_values(prefixed_values, prefix=prefix))
         except ValueError as exc:
@@ -510,7 +521,7 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
         rows=rows,
         invalid_rows=invalid_rows,
         workout_date=shared_date,
-        body_focus=flattened.get("body_focus", ""),
+        body_focus=shared_body_focus,
     )
 
 
@@ -585,10 +596,34 @@ def _layout(title: str, body: str) -> str:
     }}
     .pr-date-fresh {{ background: #16a34a24; color: #15803d; }}
     .pr-date-stale {{ background: #dc262624; color: #b91c1c; }}
+    .chart-list {{ display: grid; gap: 18px; }}
+    .chart-panel {{ border: 1px solid var(--border); border-radius: 8px; padding: 12px; }}
+    .chart-heading {{ display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; }}
+    .chart-heading h2 {{ margin: 0; }}
+    .chart-meta {{ color: color-mix(in srgb, CanvasText 68%, Canvas); font-size: 0.9rem; }}
+    .progression-chart {{ width: 100%; height: auto; display: block; }}
+    .axis {{ stroke: var(--border); stroke-width: 1; }}
+    .history-line {{ fill: none; stroke: #2563eb; stroke-width: 3; }}
+    .pr-line {{ fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 7 5; }}
+    .history-point {{ fill: #2563eb; }}
+    .pr-point {{ fill: var(--accent); stroke: Canvas; stroke-width: 2; }}
+    .chart-label {{ fill: CanvasText; font-size: 12px; }}
+    .legend {{ display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0; font-size: 0.9rem; }}
+    .legend span::before {{
+      content: "";
+      display: inline-block;
+      width: 18px;
+      height: 3px;
+      margin-right: 6px;
+      vertical-align: middle;
+      background: #2563eb;
+    }}
+    .legend .pr::before {{ background: var(--accent); }}
     @media (max-width: 760px) {{
       .grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
       .exercise {{ grid-column: span 2; }}
       .custom-exercise {{ grid-column: span 2; }}
+      .chart-heading {{ display: block; }}
       table, thead, tbody, tr, th, td {{ display: block; }}
       thead {{ display: none; }}
       td {{ border-bottom: 0; padding: 4px 0; }}
@@ -647,7 +682,10 @@ def _layout(title: str, body: str) -> str:
 </head>
 <body>
   <header>
-    <nav><a href="/log">Log</a><a href="/today">Today</a><a href="/recent">Recent</a><a href="/prs">PRs</a></nav>
+    <nav>
+      <a href="/log">Log</a><a href="/today">Today</a><a href="/recent">Recent</a>
+      <a href="/prs">PRs</a><a href="/progression">Progression</a>
+    </nav>
   </header>
   <main>{body}</main>
 </body>
@@ -894,6 +932,25 @@ def render_prs_page(db_path: Path, *, selected_part: str = "") -> str:
     return _layout("PRs", f"<h1>PRs</h1>{filter_form}{''.join(sections)}")
 
 
+def render_progression_page(db_path: Path) -> str:
+    if not db_path.exists():
+        return _layout("Progression", "<h1>Progression</h1><p>No database yet.</p>")
+
+    series = progression_series(db_path)
+    if not series:
+        return _layout(
+            "Progression",
+            "<h1>Progression</h1><p>No exercises have 3 or more weighted entries yet.</p>",
+        )
+
+    charts = "".join(_progression_panel(item) for item in series)
+    body = f"""
+<h1>Progression</h1>
+<div class="legend"><span>Logged weight</span><span class="pr">PR step</span></div>
+<div class="chart-list">{charts}</div>"""
+    return _layout("Progression", body)
+
+
 def _prs_filter_form(selected_part: str) -> str:
     options = [""] + BODY_PART_ORDER
     return f"""
@@ -924,6 +981,103 @@ def _prs_section(part: str, rows: list[str]) -> str:
         + "".join(rows)
         + "</tbody></table>"
     )
+
+
+def _progression_panel(series: ProgressionSeries) -> str:
+    variation = "" if series.variation in ("", "default") else f" [{series.variation}]"
+    pr_lookup = {id(point) for point in series.pr_points}
+    rows = "".join(
+        "<tr>"
+        f"<td>{_escape(point.workout_date)}</td>"
+        f"<td>{_escape(point.performance)}</td>"
+        f"<td>{'yes' if id(point) in pr_lookup else ''}</td>"
+        "</tr>"
+        for point in series.points
+    )
+    return f"""
+<section class="chart-panel">
+  <div class="chart-heading">
+    <h2>{_escape(series.exercise)}{_escape(variation)}</h2>
+    <div class="chart-meta">{_escape(series.part)} · {len(series.points)} weighted entries</div>
+  </div>
+  {_progression_svg(series.points, series.pr_points)}
+  <table>
+    <thead><tr><th>Date</th><th>Set</th><th>PR step</th></tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
+</section>"""
+
+
+def _progression_svg(points: list[ProgressionPoint], pr_points: list[ProgressionPoint]) -> str:
+    width = 720
+    height = 220
+    left = 52
+    right = 14
+    top = 18
+    bottom = 36
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    weights = [point.weight_kg for point in points]
+    min_weight = min(weights)
+    max_weight = max(weights)
+    if min_weight == max_weight:
+        min_weight -= 1
+        max_weight += 1
+    else:
+        padding = (max_weight - min_weight) * 0.12
+        min_weight -= padding
+        max_weight += padding
+
+    dates = [_date_ordinal(point.workout_date, idx) for idx, point in enumerate(points)]
+    min_date = min(dates)
+    max_date = max(dates)
+
+    def xy(point: ProgressionPoint, idx: int) -> tuple[float, float]:
+        if min_date == max_date:
+            x_ratio = 0.5
+        else:
+            x_ratio = (_date_ordinal(point.workout_date, idx) - min_date) / (max_date - min_date)
+        y_ratio = (point.weight_kg - min_weight) / (max_weight - min_weight)
+        return left + x_ratio * plot_width, top + (1 - y_ratio) * plot_height
+
+    coords = [xy(point, idx) for idx, point in enumerate(points)]
+    pr_lookup = {id(point) for point in pr_points}
+    pr_coords = [(x, y) for (x, y), point in zip(coords, points) if id(point) in pr_lookup]
+    history_polyline = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+    pr_polyline = " ".join(f"{x:.1f},{y:.1f}" for x, y in pr_coords)
+    point_nodes = []
+    for idx, (x, y) in enumerate(coords):
+        point = points[idx]
+        css_class = "pr-point" if id(point) in pr_lookup else "history-point"
+        point_nodes.append(
+            f'<g><circle class="{css_class}" cx="{x:.1f}" cy="{y:.1f}" r="4.5">'
+            f"<title>{_escape(point.workout_date)} · {_escape(point.performance)}</title>"
+            "</circle></g>"
+        )
+
+    y_min_label = f"{min(weights):g}kg"
+    y_max_label = f"{max(weights):g}kg"
+    first_date = points[0].workout_date
+    last_date = points[-1].workout_date
+    return f"""
+<svg class="progression-chart" viewBox="0 0 {width} {height}" role="img" aria-label="Weight progression chart">
+  <line class="axis" x1="{left}" y1="{top}" x2="{left}" y2="{height - bottom}"></line>
+  <line class="axis" x1="{left}" y1="{height - bottom}" x2="{width - right}" y2="{height - bottom}"></line>
+  <text class="chart-label" x="4" y="{top + 4}">{_escape(y_max_label)}</text>
+  <text class="chart-label" x="4" y="{height - bottom}">{_escape(y_min_label)}</text>
+  <text class="chart-label" x="{left}" y="{height - 10}">{_escape(first_date)}</text>
+  <text class="chart-label" text-anchor="end" x="{width - right}" y="{height - 10}">{_escape(last_date)}</text>
+  <polyline class="history-line" points="{history_polyline}"></polyline>
+  <polyline class="pr-line" points="{pr_polyline}"></polyline>
+  {''.join(point_nodes)}
+</svg>"""
+
+
+def _date_ordinal(value: str, fallback: int) -> int:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date().toordinal()
+    except ValueError:
+        return fallback
 
 
 def normalize_bind_host(host: str) -> str:
@@ -963,6 +1117,9 @@ class WorkoutFormHandler(BaseHTTPRequestHandler):
         if parsed.path == "/prs":
             selected_part = parse_qs(parsed.query).get("part", [""])[-1]
             self._send_html(render_prs_page(self.db_path, selected_part=selected_part))
+            return
+        if parsed.path == "/progression":
+            self._send_html(render_progression_page(self.db_path))
             return
         self._send_html(_layout("Not Found", "<h1>Not Found</h1>"), status=404)
 

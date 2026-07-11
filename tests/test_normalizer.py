@@ -92,7 +92,7 @@ def test_rear_delt_in_raw():
     ("reverse curl on cable", "Reverse Curl on Cable"),
     ("seated row", "Chest Supported Rows"),
     ("horizontal rows", "Chest Supported Rows"),
-    ("seated row machine", "Seated Row Machine"),
+    ("seated row machine", "Seated Cable Row"),
     ("horizontal leg press", "Horizontal Leg Press"),
     ("barbell incline press", "Barbell Bench Press"),
     ("vertical chest press", "Vertical Chest Press Machine"),

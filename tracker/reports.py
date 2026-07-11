@@ -47,6 +47,25 @@ class PRDisplayRow:
 
 
 @dataclass(frozen=True)
+class ProgressionPoint:
+    workout_date: str
+    performance: str
+    weight_kg: float
+    sets: int
+    reps: int
+    per_hand: bool
+
+
+@dataclass(frozen=True)
+class ProgressionSeries:
+    part: str
+    exercise: str
+    variation: str
+    points: list[ProgressionPoint]
+    pr_points: list[ProgressionPoint]
+
+
+@dataclass(frozen=True)
 class BodyPartActivity:
     part: str
     sessions_14d: int
@@ -411,3 +430,48 @@ def pr_display_rows(db_path: Path) -> list[PRDisplayRow]:
                 display_rows.append(PRDisplayRow(part, exercise, variation, perf, date_str))
 
     return display_rows
+
+
+def progression_series(db_path: Path, *, min_weighted_entries: int = 3) -> list[ProgressionSeries]:
+    """Weighted history by exercise and variation, excluding sparse series."""
+    rows = [row for row in _load_rows(db_path) if row.weight_kg is not None]
+    if not rows:
+        return []
+
+    grouped: dict[tuple[str, str], list[PRRow]] = defaultdict(list)
+    for row in rows:
+        grouped[(row.exercise, row.variation or "default")].append(row)
+
+    series: list[ProgressionSeries] = []
+    for (exercise, variation), group in grouped.items():
+        if len(group) < min_weighted_entries:
+            continue
+        sorted_group = sorted(group, key=lambda row: (row.workout_date, row.exercise, row.variation))
+        points = [
+            ProgressionPoint(
+                workout_date=row.workout_date,
+                performance=_fmt_performance(row),
+                weight_kg=row.weight_kg if row.weight_kg is not None else 0.0,
+                sets=row.sets,
+                reps=row.reps,
+                per_hand=row.per_hand,
+            )
+            for row in sorted_group
+        ]
+        best_weight = float("-inf")
+        pr_points: list[ProgressionPoint] = []
+        for point in points:
+            if point.weight_kg > best_weight:
+                pr_points.append(point)
+                best_weight = point.weight_kg
+        part = row_body_part(exercise, sorted_group[-1].body_part)
+        series.append(ProgressionSeries(part, exercise, variation, points, pr_points))
+
+    part_rank = {part: idx for idx, part in enumerate(BODY_PART_ORDER)}
+    series.sort(key=lambda item: (
+        part_rank.get(item.part, len(part_rank)),
+        item.exercise,
+        item.variation,
+        item.points[-1].workout_date,
+    ))
+    return series
