@@ -90,6 +90,21 @@ def test_form_row_maps_barbell_incline_to_bench_variation() -> None:
     assert row.equipment == "barbell"
 
 
+def test_form_row_accepts_reverse_grip_for_cable_curl() -> None:
+    row = form_row_from_values({
+        "workout_date": "2026-06-19",
+        "exercise": "Bicep Curl on Cable",
+        "variation": "reverse grip",
+        "sets": "3",
+        "reps": "12",
+        "weight_kg": "20",
+    })
+
+    assert row.exercise == "Bicep Curl on Cable"
+    assert row.variation == "reverse grip"
+    assert row.equipment == "cable"
+
+
 def test_form_row_uses_custom_exercise_when_present() -> None:
     row = form_row_from_values({
         "workout_date": "2026-06-19",
@@ -309,6 +324,25 @@ def test_insert_form_rows_re_reads_inserted_rows(tmp_path: Path) -> None:
     assert rows[0]["id"] == 1
     assert rows[0]["exercise"] == "Hip Thrust"
     assert rows[0]["details"] == "3x15 @ 20kg"
+
+
+def test_insert_form_rows_allows_reverse_grip_tricep_pushdown(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    rows = insert_form_rows(db, [
+        FormRow(
+            workout_date="2026-06-16",
+            exercise="Tricep Pushdown",
+            variation="reverse grip",
+            sets=3,
+            reps=12,
+            weight_kg=25.0,
+            equipment="cable",
+            per_hand=False,
+        )
+    ])
+
+    assert rows[0]["exercise"] == "Tricep Pushdown"
+    assert rows[0]["variation"] == "reverse grip"
 
 
 def test_update_form_row_re_reads_exact_row(tmp_path: Path) -> None:

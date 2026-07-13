@@ -20,7 +20,7 @@ sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 ## Project structure
 
 ```
-tracker/          — core library (models, normalizer, core DB helpers, PR reports)
+tracker/          — core library (models, normalizer, core DB helpers, PR/progression reports)
 scripts/          — entry points and utilities (summary.py, web_form.py, backfill_structured.py, backup_db.py, restore_db.sh)
 tests/            — pytest suite (test_normalizer.py, test_reports.py, test_web_form.py)
 query_db.py       — does not exist; use `sqlite3 data/workouts.sqlite` directly
@@ -34,6 +34,8 @@ design.md         — data model, variation rules, logging behaviour
 - **15 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part
 - **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
+- **Valid variations**: `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`, `reverse grip`
+- **Progression charts**: web-only `/progression`, grouped by exercise + variation, minimum 3 weighted entries, ordered by `BODY_PART_ORDER`
 - **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
 - **Web form port**: always use/restart the canonical `127.0.0.1:8765` service. If the port is busy, restart the existing service/process on `8765`; do not start a second form server on a different port.
 
@@ -42,7 +44,8 @@ design.md         — data model, variation rules, logging behaviour
 Workout data entry is form-only. Do not parse pasted workouts into DB rows and do not mutate `data/workouts.sqlite` from chat unless the user explicitly asks for a direct DB maintenance operation.
 
 - User pastes workout lines → do not log them; direct them to the private form URL.
-- User asks for summary, PRs, stats, progress, coaching, or what to train next → use `uv run python scripts/summary.py` with the appropriate flag.
+- User asks for summary, PRs, stats, coaching, or what to train next → use `uv run python scripts/summary.py` with the appropriate flag.
+- User asks for progression charts in the app → inspect or update `/progression` in `scripts/web_form.py`; the CLI has no chart flag.
 - User asks to see the table, DB, rows, browse data, top N, last N → use `sqlite3 data/workouts.sqlite` directly.
 - Backups → use `uv run python scripts/backup_db.py` from cron/systemd or an explicit shell session.
 
@@ -63,7 +66,8 @@ Key mappings in `tracker/normalizer.py` — use these exact names in the DB:
 - `leg curl` → `Hamstring Curl`
 - `leg press` → `45 Degree Leg Press`
 - `seated row` / `horizontal row` → `Chest Supported Rows`
-- `seated row machine` → `Seated Row Machine`
+- `seated row machine` → `Seated Cable Row`
 - `abs crunch` → `Seated Abs Crunch Machine`
 - `lat pull down` (any grip) → `Lat Pull Down` + variation column (`short grip` / `wide grip`)
+- reverse-grip cable curls and tricep pushdowns → variation column `reverse grip`
 - `tricep pushdown` → equipment is `cable` (not machine)

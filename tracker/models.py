@@ -21,7 +21,15 @@ class WorkoutRecord:
     body_part: str = ""
 
 
-VALID_VARIATIONS = frozenset({"default", "flat", "incline", "decline", "short grip", "wide grip"})
+VALID_VARIATIONS = frozenset({
+    "default",
+    "flat",
+    "incline",
+    "decline",
+    "short grip",
+    "wide grip",
+    "reverse grip",
+})
 EQUIPMENT_VALUES = frozenset({
     "dumbbells", "barbell", "machine", "cable", "bodyweight",
     "kettlebell", "smith machine", "band", "other", "",

@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from tracker.models import VALID_VARIATIONS
 from tracker.reports import BODY_PART_ORDER, body_part, row_body_part
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -73,6 +74,7 @@ def ensure_db(db_path: Path) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(workout_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_type ON workouts(workout_type)")
         valid_body_parts = "', '".join(BODY_PART_ORDER)
+        valid_variations = "', '".join(sorted(VALID_VARIATIONS))
         conn.execute("DROP TRIGGER IF EXISTS workouts_validate_insert")
         conn.execute("DROP TRIGGER IF EXISTS workouts_validate_update")
         conn.execute(f"""
@@ -80,7 +82,7 @@ def ensure_db(db_path: Path) -> None:
         BEFORE INSERT ON workouts
         BEGIN
           SELECT CASE
-            WHEN NEW.variation NOT IN ('default', 'flat', 'incline', 'decline', 'short grip', 'wide grip')
+            WHEN NEW.variation NOT IN ('{valid_variations}')
             THEN RAISE(ABORT, 'invalid variation')
           END;
           SELECT CASE
@@ -98,7 +100,7 @@ def ensure_db(db_path: Path) -> None:
         BEFORE UPDATE ON workouts
         BEGIN
           SELECT CASE
-            WHEN NEW.variation NOT IN ('default', 'flat', 'incline', 'decline', 'short grip', 'wide grip')
+            WHEN NEW.variation NOT IN ('{valid_variations}')
             THEN RAISE(ABORT, 'invalid variation')
           END;
           SELECT CASE

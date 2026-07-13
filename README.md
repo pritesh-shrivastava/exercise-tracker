@@ -13,14 +13,14 @@ tracker/
   models.py                  — shared workout row model, validation, details formatting
   normalizer.py              — canonical exercise names + typo recovery
   core.py                    — DB helpers (fetch, format, auto-migrate)
-  reports.py                 — PR report by body part with scoring
+  reports.py                 — PR reports, progression series, and coaching helpers
 tests/
   test_normalizer.py         — normalizer unit tests
-  test_reports.py            — PR report tests
+  test_reports.py            — report, progression, and coaching tests
   test_web_form.py           — structured form helper tests
 scripts/
   summary.py                 — quick stats (default), PRs (--prs), or coaching prompts (--coach)
-  web_form.py                — stdlib mobile web form: Log, Today, PRs
+  web_form.py                — stdlib mobile web form: Log, Today, Recent, PRs, Progression
   exercise-web-form.service  — systemd unit for always-on localhost form server
   backfill_structured.py     — one-off backfill of structured columns (sets, reps, weight_kg, etc.)
   backup_db.py               — Azure Blob backup implementation (SQLite + CSV upload only)
@@ -122,11 +122,13 @@ Pages:
 
 - `Log` — date, exercise, variation, sets, reps, weight, equipment, and per-hand fields
 - `Today` — today's saved rows, with exact row selection for updates/deletes
+- `Recent` — recent saved rows without internal IDs, raw text, or derived details
 - `PRs` — DB-backed PR output using the same report code as `scripts/summary.py --prs`
+- `Progression` — SVG weight charts for exercise/variation series with at least 3 weighted entries, ordered by body part
 
 The form should not show "saved" until the SQLite write succeeds and the inserted rows are re-read from `data/workouts.sqlite`.
 
-## Reporting And Inspection
+## Reporting and Inspection
 
 Use local commands against the SQLite database:
 
@@ -138,6 +140,21 @@ sqlite3 data/workouts.sqlite              # raw DB inspection
 ```
 
 For raw display, hide `id`, `raw_text`, and `details` unless you are deliberately auditing internals. Hide `variation` when it is `default`.
+
+Variation rules:
+
+- Valid variations are `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`, and `reverse grip`.
+- Bench movements use `flat`, `incline`, or `decline`.
+- Lat Pull Down uses `short grip` or `wide grip`.
+- Reverse-grip cable curls and tricep pushdowns use `reverse grip`.
+
+Progression chart rules:
+
+- Only rows with a non-empty `weight_kg` count toward progression history.
+- Exercises are tracked separately by `exercise` plus `variation`.
+- A chart appears once that exercise/variation has at least 3 weighted entries.
+- Chart order follows saved body-part order from `tracker.reports.BODY_PART_ORDER`, then exercise and variation.
+- Dumbbell rows store total load; `per_hand=1` only changes display, such as showing `20kg` as `10ea.`.
 
 Backups run directly from cron/systemd or an explicit shell session:
 

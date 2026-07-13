@@ -180,7 +180,7 @@ EXERCISE_DEFAULT_PER_HAND = frozenset({
     "Weighted Lunge",
 })
 
-VARIATION_CHOICES = ["default", "flat", "incline", "decline", "short grip", "wide grip"]
+VARIATION_CHOICES = ["default", "flat", "incline", "decline", "short grip", "wide grip", "reverse grip"]
 BODY_FOCUS_CHOICES = [
     ("", "blank"),
     ("Back,Biceps", "Back + Biceps"),
