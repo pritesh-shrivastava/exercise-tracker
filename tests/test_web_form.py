@@ -570,6 +570,33 @@ def test_render_progression_page_shows_eligible_svg_chart(tmp_path: Path) -> Non
     assert "PR step" in html
 
 
+def test_render_progression_page_table_shows_latest_three_entries(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+    for idx, weight in enumerate((20.0, 22.5, 25.0, 27.5), start=1):
+        insert_form_rows(db, [
+            FormRow(
+                workout_date=f"2026-06-1{idx}",
+                exercise="Dumbbell Bench Press",
+                variation="flat",
+                sets=3,
+                reps=12,
+                weight_kg=weight,
+                equipment="dumbbells",
+                per_hand=True,
+            )
+        ])
+
+    html = render_progression_page(db)
+
+    assert "4 weighted entries" in html
+    assert "<circle" in html
+    assert "2026-06-11</td>" not in html
+    assert "2026-06-12</td>" in html
+    assert "2026-06-13</td>" in html
+    assert "2026-06-14</td>" in html
+
+
 def test_render_progression_page_uses_current_exercise_names(tmp_path: Path) -> None:
     db = tmp_path / "workouts.sqlite"
     ensure_db(db)

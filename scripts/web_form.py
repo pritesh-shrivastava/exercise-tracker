@@ -995,13 +995,14 @@ def _prs_section(part: str, rows: list[str]) -> str:
 def _progression_panel(series: ProgressionSeries) -> str:
     variation = "" if series.variation in ("", "default") else f" [{series.variation}]"
     pr_lookup = {id(point) for point in series.pr_points}
+    latest_points = series.points[-3:]
     rows = "".join(
         "<tr>"
         f"<td>{_escape(point.workout_date)}</td>"
         f"<td>{_escape(point.performance)}</td>"
         f"<td>{'yes' if id(point) in pr_lookup else ''}</td>"
         "</tr>"
-        for point in series.points
+        for point in latest_points
     )
     return f"""
 <section class="chart-panel">
@@ -1011,7 +1012,7 @@ def _progression_panel(series: ProgressionSeries) -> str:
   </div>
   {_progression_svg(series.points, series.pr_points)}
   <table>
-    <thead><tr><th>Date</th><th>Set</th><th>PR step</th></tr></thead>
+    <thead><tr><th>Date</th><th>Latest set</th><th>PR step</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </section>"""
