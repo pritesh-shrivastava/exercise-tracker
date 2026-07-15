@@ -155,6 +155,7 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Dumbbell Rows": "dumbbells",
     "Dumbbell Shoulder Press": "dumbbells",
     "Dumbbell Shrugs": "dumbbells",
+    "Decline Bench Situp": "bodyweight",
     "Face Pull": "cable",
     "Front Raise": "dumbbells",
     "Glute Kickback Machine": "machine",
@@ -184,7 +185,6 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Tricep Pushdown": "cable",
     "Vertical Chest Press Machine": "machine",
     "Weighted Lunge": "dumbbells",
-    "Decline Bench Situp": "bodyweight",
 }
 EXERCISE_DEFAULT_BODY_PART = {
     exercise: group

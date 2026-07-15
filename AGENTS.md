@@ -35,7 +35,9 @@ design.md         — data model, variation rules, logging behaviour
 - **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
 - **Valid variations**: `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`, `reverse grip`
-- **Progression charts**: web-only `/progression`, grouped by exercise + variation, minimum 3 weighted entries, ordered by `BODY_PART_ORDER`
+- **Form defaults**: every predefined exercise in `scripts/web_form.py` should have nonblank default equipment and body-part metadata; selecting an exercise pre-fills those fields
+- **PR/progression filters**: `/prs?part=...` and `/progression?part=...` use the same `BODY_PART_ORDER` body-part dropdown
+- **Progression charts**: web-only `/progression`, grouped by exercise + variation, minimum 3 weighted entries, ordered by `BODY_PART_ORDER`; chart uses full history, table shows latest 3 entries
 - **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
 - **Web form port**: always use/restart the canonical `127.0.0.1:8765` service. If the port is busy, restart the existing service/process on `8765`; do not start a second form server on a different port.
 
@@ -47,6 +49,7 @@ Workout data entry is form-only. Do not parse pasted workouts into DB rows and d
 - User asks for summary, PRs, stats, coaching, or what to train next → use `uv run python scripts/summary.py` with the appropriate flag.
 - User asks for progression charts in the app → inspect or update `/progression` in `scripts/web_form.py`; the CLI has no chart flag.
 - User asks to see the table, DB, rows, browse data, top N, last N → use `sqlite3 data/workouts.sqlite` directly.
+- User asks for DB anomalies/cleanup candidates → check blank equipment, missing non-bodyweight weights, invalid body parts/variations, duplicate-looking rows, and mixed equipment/body-part values per exercise.
 - Backups → use `uv run python scripts/backup_db.py` from cron/systemd or an explicit shell session.
 
 Do not use sub-agents for workout updates or DB queries. Sub-agents may only be used for code fixes or audits, never for mutating `data/workouts.sqlite`.

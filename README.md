@@ -120,13 +120,15 @@ All workout logging happens through the mobile form. The form is intentionally s
 
 Pages:
 
-- `Log` — date, exercise, variation, sets, reps, weight, equipment, and per-hand fields
+- `Log` — date, exercise, variation, sets, reps, weight, equipment, body part, and per-hand fields
 - `Today` — today's saved rows, with exact row selection for updates/deletes
 - `Recent` — recent saved rows without internal IDs, raw text, or derived details
-- `PRs` — DB-backed PR output using the same report code as `scripts/summary.py --prs`
-- `Progression` — SVG weight charts for exercise/variation series with at least 3 weighted entries, ordered by body part
+- `PRs` — DB-backed PR output using the same report code as `scripts/summary.py --prs`, with a body-part dropdown
+- `Progression` — SVG weight charts for exercise/variation series with at least 3 weighted entries, with a body-part dropdown
 
 The form should not show "saved" until the SQLite write succeeds and the inserted rows are re-read from `data/workouts.sqlite`.
+
+The exercise selector carries default equipment, body-part, and per-hand metadata for every predefined exercise. Selecting a listed exercise pre-fills equipment and body part; bodyweight selections also clear the weight field. Custom exercises are allowed, but should include explicit equipment and body-part values because they do not have selector metadata.
 
 ## Reporting and Inspection
 
@@ -154,7 +156,17 @@ Progression chart rules:
 - Exercises are tracked separately by `exercise` plus `variation`.
 - A chart appears once that exercise/variation has at least 3 weighted entries.
 - Chart order follows saved body-part order from `tracker.reports.BODY_PART_ORDER`, then exercise and variation.
+- The `/progression?part=...` filter uses the same body-part dropdown convention as `/prs?part=...`.
+- The chart plots the full weighted history; the table under each chart shows only the latest 3 entries.
 - Dumbbell rows store total load; `per_hand=1` only changes display, such as showing `20kg` as `10ea.`.
+
+Useful DB cleanup checks:
+
+```bash
+sqlite3 data/workouts.sqlite "SELECT id, workout_date, exercise FROM workouts WHERE equipment IS NULL OR equipment = '';"
+sqlite3 data/workouts.sqlite "SELECT id, workout_date, exercise FROM workouts WHERE equipment != 'bodyweight' AND weight_kg IS NULL;"
+sqlite3 data/workouts.sqlite "SELECT exercise, GROUP_CONCAT(DISTINCT equipment), COUNT(*) FROM workouts GROUP BY exercise HAVING COUNT(DISTINCT equipment) > 1 ORDER BY exercise;"
+```
 
 Backups run directly from cron/systemd or an explicit shell session:
 

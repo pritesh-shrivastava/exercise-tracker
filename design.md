@@ -22,7 +22,7 @@ The `workouts` table has 15 columns:
 | `sets` | set count |
 | `reps` | reps per set |
 | `weight_kg` | total load in kg, not per-hand |
-| `equipment` | equipment category |
+| `equipment` | equipment category: `bodyweight`, `dumbbells`, `barbell`, `machine`, `cable`, `kettlebell`, `smith machine`, `band`, `other`, or blank only for legacy/custom edge cases |
 | `per_hand` | boolean flag for dumbbell per-hand display |
 | `body_part` | saved body-part tag used for reports and coaching |
 
@@ -31,6 +31,7 @@ Important invariants:
 - `per_hand=1` is valid only with `equipment='dumbbells'`.
 - `details` is derived display text; reports use structured fields.
 - `body_part` is saved from the form; reports fall back to name-based classification when it is blank.
+- Predefined form exercises should have nonblank default equipment and body-part metadata in `scripts/web_form.py`.
 - `ensure_db()` in `tracker/core.py` creates and auto-migrates missing columns.
 
 ## Entry Rules
@@ -41,8 +42,10 @@ Form pages:
 - `Log` writes one structured strength row per submitted row.
 - `Today` supports exact same-day corrections and deletes.
 - `Recent` shows recent saved rows while hiding internal/trace columns.
-- `PRs` renders the same PR report path as `scripts/summary.py --prs`.
-- `Progression` renders SVG weight-history charts from structured weighted rows.
+- `PRs` renders the same PR report path as `scripts/summary.py --prs`, with an optional `?part=BodyPart` filter.
+- `Progression` renders SVG weight-history charts from structured weighted rows, with an optional `?part=BodyPart` filter.
+
+The `Log` page's predefined exercise dropdown is the source for automatic equipment, body-part, and default per-hand selection. Custom exercises bypass those defaults and should be logged with explicit equipment and body part.
 
 The form runs on `127.0.0.1:8765` and is exposed privately with Tailscale Serve. It has no public-internet authentication layer, so do not bind it to a public interface without an auth proxy.
 
@@ -72,6 +75,8 @@ Report rules:
 - Body-part display uses saved `body_part` tags first, then classifier fallback in `tracker/reports.py`.
 - Coaching is advisory only: body-part recency, recent coverage, and stale high-rep weighted PRs that may be ready for a small weight increase.
 - Progression charts group by canonical exercise plus variation, ignore rows without `weight_kg`, require at least 3 weighted entries, and order charts by `BODY_PART_ORDER`.
+- Progression SVGs plot full weighted history; the compact table under each chart shows only the latest 3 entries.
+- The PR and progression pages both use `part` query-parameter filtering with values from `BODY_PART_ORDER`.
 
 ## Local Operations
 
@@ -83,6 +88,12 @@ All workout writes use the private web form. Local scripts may read the database
 - Use `sqlite3 data/workouts.sqlite` for direct DB inspection.
 - Send new logs, corrections, and deletes through the private form.
 - Avoid medical or injury diagnosis.
+
+Useful anomaly checks before/after direct maintenance:
+- Blank equipment: `SELECT id, workout_date, exercise FROM workouts WHERE equipment IS NULL OR equipment = '';`
+- Missing non-bodyweight load: `SELECT id, workout_date, exercise FROM workouts WHERE equipment != 'bodyweight' AND weight_kg IS NULL;`
+- Mixed exercise equipment: `SELECT exercise, GROUP_CONCAT(DISTINCT equipment), COUNT(*) FROM workouts GROUP BY exercise HAVING COUNT(DISTINCT equipment) > 1;`
+- Invalid body parts or variations should be treated as data cleanup, not as reporting display problems.
 
 ## Maintenance
 
