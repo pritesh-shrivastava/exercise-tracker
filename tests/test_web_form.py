@@ -4,6 +4,8 @@ import sqlite3
 from pathlib import Path
 
 from scripts.web_form import (
+    EXERCISE_DEFAULT_EQUIPMENT,
+    EXERCISE_GROUPS,
     FormRow,
     _parse_form_submission,
     _rows_from_post,
@@ -34,6 +36,17 @@ def test_form_row_applies_default_equipment() -> None:
 
     assert row.exercise == "Kettlebell Swing"
     assert row.equipment == "kettlebell"
+
+
+def test_all_predefined_exercises_have_default_equipment() -> None:
+    missing = [
+        exercise
+        for exercises in EXERCISE_GROUPS.values()
+        for exercise in exercises
+        if not EXERCISE_DEFAULT_EQUIPMENT.get(exercise)
+    ]
+
+    assert missing == []
 
 
 def test_form_row_defaults_per_hand_for_selected_dumbbell_exercises() -> None:
@@ -162,7 +175,9 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert 'value="Barbell Deadlift" data-equipment="barbell"' in html
     assert 'value="Dumbbell Bench Press" data-equipment="dumbbells" data-body-part="Chest" data-per-hand="1"' in html
     assert 'value="Weighted Lunge" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="1"' in html
-    assert 'value="Goblet Squat" data-equipment="" data-body-part="Legs" data-per-hand="0"' in html
+    assert 'value="Goblet Squat" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="0"' in html
+    assert 'value="Leg Extension" data-equipment="machine" data-body-part="Legs" data-per-hand="0"' in html
+    assert 'value="Single Arm Dumbbell Row" data-equipment="dumbbells" data-body-part="Back" data-per-hand="0"' in html
     assert 'value="Barbell Incline Press"' not in html
     assert 'value="Bodyweight Squat" data-equipment="bodyweight" data-body-part="Legs"' in html
     assert 'value="Kettlebell Swing" data-equipment="kettlebell" data-body-part="Legs"' in html
