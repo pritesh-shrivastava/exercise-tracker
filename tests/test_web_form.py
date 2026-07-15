@@ -597,6 +597,36 @@ def test_render_progression_page_table_shows_latest_three_entries(tmp_path: Path
     assert "2026-06-14</td>" in html
 
 
+def test_render_progression_page_filters_by_body_part(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+    for exercise, variation, equipment in (
+        ("Dumbbell Bench Press", "flat", "dumbbells"),
+        ("Lat Pull Down", "wide grip", "machine"),
+    ):
+        for idx, weight in enumerate((20.0, 22.5, 25.0), start=1):
+            insert_form_rows(db, [
+                FormRow(
+                    workout_date=f"2026-06-1{idx}",
+                    exercise=exercise,
+                    variation=variation,
+                    sets=3,
+                    reps=12,
+                    weight_kg=weight,
+                    equipment=equipment,
+                    per_hand=equipment == "dumbbells",
+                )
+            ])
+
+    html = render_progression_page(db, selected_part="Back")
+
+    assert '<form method="get" action="/progression">' in html
+    assert '<select name="part"' in html
+    assert 'value="Back" selected' in html
+    assert "Lat Pull Down [wide grip]" in html
+    assert "Dumbbell Bench Press" not in html
+
+
 def test_render_progression_page_uses_current_exercise_names(tmp_path: Path) -> None:
     db = tmp_path / "workouts.sqlite"
     ensure_db(db)

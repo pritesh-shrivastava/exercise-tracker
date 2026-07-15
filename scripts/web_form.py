@@ -941,29 +941,38 @@ def render_prs_page(db_path: Path, *, selected_part: str = "") -> str:
     return _layout("PRs", f"<h1>PRs</h1>{filter_form}{''.join(sections)}")
 
 
-def render_progression_page(db_path: Path) -> str:
+def render_progression_page(db_path: Path, *, selected_part: str = "") -> str:
     if not db_path.exists():
         return _layout("Progression", "<h1>Progression</h1><p>No database yet.</p>")
 
     series = progression_series(db_path)
+    selected_part = selected_part if selected_part in BODY_PART_ORDER else ""
+    filter_form = _body_part_filter_form("/progression", selected_part)
+    if selected_part:
+        series = [item for item in series if item.part == selected_part]
     if not series:
         return _layout(
             "Progression",
-            "<h1>Progression</h1><p>No exercises have 3 or more weighted entries yet.</p>",
+            f"<h1>Progression</h1>{filter_form}<p>No exercises have 3 or more weighted entries yet.</p>",
         )
 
     charts = "".join(_progression_panel(item) for item in series)
     body = f"""
 <h1>Progression</h1>
+{filter_form}
 <div class="legend"><span>Logged weight</span><span class="pr">PR step</span></div>
 <div class="chart-list">{charts}</div>"""
     return _layout("Progression", body)
 
 
 def _prs_filter_form(selected_part: str) -> str:
+    return _body_part_filter_form("/prs", selected_part)
+
+
+def _body_part_filter_form(action: str, selected_part: str) -> str:
     options = [""] + BODY_PART_ORDER
     return f"""
-<form method="get" action="/prs">
+<form method="get" action="{_escape(action)}">
   <label>Body part<select name="part" onchange="this.form.submit()">{_options(options, selected_part)}</select></label>
 </form>"""
 
@@ -1129,7 +1138,8 @@ class WorkoutFormHandler(BaseHTTPRequestHandler):
             self._send_html(render_prs_page(self.db_path, selected_part=selected_part))
             return
         if parsed.path == "/progression":
-            self._send_html(render_progression_page(self.db_path))
+            selected_part = parse_qs(parsed.query).get("part", [""])[-1]
+            self._send_html(render_progression_page(self.db_path, selected_part=selected_part))
             return
         self._send_html(_layout("Not Found", "<h1>Not Found</h1>"), status=404)
 
