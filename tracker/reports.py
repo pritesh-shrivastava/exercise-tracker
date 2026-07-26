@@ -10,6 +10,13 @@ from pathlib import Path
 from typing import Iterable
 
 BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Other"]
+TRAINING_AREAS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Chest & Triceps", ("Chest", "Triceps")),
+    ("Back & Biceps", ("Back", "Biceps")),
+    ("Shoulders & Abs", ("Shoulders", "Core")),
+    ("Legs", ("Legs",)),
+)
+COACH_PROGRESSION_PROMPT_LIMIT = 6
 BODY_PART_EMOJI = {
     "Chest": "🩻",
     "Back": "🧱",
@@ -68,6 +75,16 @@ class ProgressionSeries:
 @dataclass(frozen=True)
 class BodyPartActivity:
     part: str
+    sessions_14d: int
+    entries_14d: int
+    last_trained: str | None
+    days_since: int | None
+
+
+@dataclass(frozen=True)
+class TrainingAreaActivity:
+    area: str
+    parts: tuple[str, ...]
     sessions_14d: int
     entries_14d: int
     last_trained: str | None
@@ -268,6 +285,58 @@ def _next_focus(activity: Iterable[BodyPartActivity]) -> list[BodyPartActivity]:
     return never_trained[:2] + stale + never_trained[2:]
 
 
+def _activity_by_training_area(activity: Iterable[BodyPartActivity], as_of: date) -> list[TrainingAreaActivity]:
+    by_part = {row.part: row for row in activity}
+    areas: list[TrainingAreaActivity] = []
+    for area, parts in TRAINING_AREAS:
+        part_rows = tuple(
+            by_part.get(part, BodyPartActivity(part, 0, 0, None, None))
+            for part in parts
+        )
+        last_trained = max((row.last_trained or "" for row in part_rows), default="") or None
+        days_since: int | None = None
+        if last_trained:
+            try:
+                days_since = (as_of - datetime.strptime(last_trained, "%Y-%m-%d").date()).days
+            except ValueError:
+                days_since = None
+        areas.append(
+            TrainingAreaActivity(
+                area=area,
+                parts=parts,
+                sessions_14d=sum(row.sessions_14d for row in part_rows),
+                entries_14d=sum(row.entries_14d for row in part_rows),
+                last_trained=last_trained,
+                days_since=days_since,
+            )
+        )
+    return areas
+
+
+def _next_training_area(activity: Iterable[BodyPartActivity], as_of: date) -> TrainingAreaActivity:
+    focus_parts = _next_focus(activity)
+    areas = _activity_by_training_area(activity, as_of)
+    area_by_part = {
+        part: area_activity
+        for area_activity in areas
+        for part in area_activity.parts
+    }
+    for part_activity in focus_parts:
+        if part_activity.part in area_by_part:
+            return area_by_part[part_activity.part]
+    return areas[0]
+
+
+def _focus_status(row: BodyPartActivity | TrainingAreaActivity) -> str:
+    if row.last_trained is None:
+        return "no logged strength work yet"
+    if row.days_since == 0:
+        return "trained today"
+    if row.days_since == 1:
+        return "last trained yesterday"
+    return f"last trained {row.days_since} days ago"
+
+
 def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
     """DB-backed advisory prompts for training focus."""
     if not db_path.exists():
@@ -279,7 +348,7 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
 
     today = as_of or date.today()
     activity = _activity_by_body_part(db_path, today)
-    focus = _next_focus(activity)[:4]
+    focus = _next_training_area(activity, today)
     recent_sessions = sum(row.sessions_14d for row in activity)
     recent_entries = sum(row.entries_14d for row in activity)
 
@@ -290,24 +359,16 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
         "",
         "Suggested next focus:",
     ]
-    for row in focus:
-        if row.last_trained is None:
-            status = "no logged strength work yet"
-        elif row.days_since == 0:
-            status = "trained today"
-        elif row.days_since == 1:
-            status = "last trained yesterday"
-        else:
-            status = f"last trained {row.days_since} days ago"
-        lines.append(f"- {row.part}: {status}; {row.sessions_14d} sessions / {row.entries_14d} entries in 14d")
+    status = _focus_status(focus)
+    lines.append(f"- {focus.area}: {status}; {focus.sessions_14d} sessions / {focus.entries_14d} entries in 14d")
 
     lines.extend(["", "Progression prompts:"])
-    progression = format_stale_pr_increment_candidates(db_path, as_of=today)
+    progression = format_stale_pr_increment_candidates(db_path, as_of=today, body_parts=focus.parts)
     if progression:
-        candidates = progression.splitlines()[2:5]
+        candidates = progression.splitlines()[2:2 + COACH_PROGRESSION_PROMPT_LIMIT]
         lines.extend(f"- {candidate}" for candidate in candidates)
     else:
-        lines.append("- No stale 15+ rep weighted PRs are currently flagged for a weight increase.")
+        lines.append("- No stale weighted PRs are currently flagged for progression.")
 
     lines.extend(
         [
@@ -324,44 +385,61 @@ def format_stale_pr_increment_candidates(
     as_of: date | None = None,
     stale_days: int = 30,
     min_reps: int = 15,
+    rep_progression_below: int = 12,
+    body_parts: Iterable[str] | None = None,
 ) -> str:
-    """Weighted PRs old enough and high-rep enough to consider increasing weight."""
+    """Weighted PRs old enough to consider increasing weight or reps."""
     rows = _load_rows(db_path)
     if not rows:
         return ""
 
     today = as_of or date.today()
-    candidates: list[PRRow] = []
+    allowed_parts = set(body_parts) if body_parts is not None else None
+    candidates: list[tuple[str, PRRow]] = []
     for row in _best_sets(rows).values():
-        if row.weight_kg is None or row.reps < min_reps:
+        part = row_body_part(row.exercise, row.body_part)
+        if allowed_parts is not None and part not in allowed_parts:
+            continue
+        if row.weight_kg is None:
             continue
         try:
             pr_date = datetime.strptime(row.workout_date, "%Y-%m-%d").date()
         except ValueError:
             continue
         if (today - pr_date).days > stale_days:
-            candidates.append(row)
+            if row.reps >= min_reps:
+                candidates.append(("weight", row))
+            elif row.reps < rep_progression_below:
+                candidates.append(("reps", row))
 
     if not candidates:
         return ""
 
     part_rank = {part: idx for idx, part in enumerate(BODY_PART_ORDER)}
-    candidates.sort(key=lambda row: (
-        part_rank.get(row_body_part(row.exercise, row.body_part), len(part_rank)),
-        row.exercise,
-        row.variation,
+    progression_rank = {"weight": 0, "reps": 1}
+    candidates.sort(key=lambda candidate: (
+        part_rank.get(row_body_part(candidate[1].exercise, candidate[1].body_part), len(part_rank)),
+        candidate[1].exercise,
+        candidate[1].variation,
+        progression_rank[candidate[0]],
     ))
 
     lines = [
-        f"Stale PRs ready for weight increase (>{stale_days}d, {min_reps}+ reps)",
+        (
+            f"Stale PRs ready for progression (>{stale_days}d, "
+            f"{min_reps}+ reps for weight or <{rep_progression_below} reps for reps)"
+        ),
         "",
     ]
-    for row in candidates:
+    for progression_type, row in candidates:
         part = row_body_part(row.exercise, row.body_part)
         emoji = BODY_PART_EMOJI.get(part, "•")
         variation = f" [{row.variation}]" if row.variation not in ("", "default") else ""
         pr_date_label = datetime.strptime(row.workout_date, "%Y-%m-%d").strftime("%d %b %Y")
-        lines.append(f"{emoji}  {row.exercise}{variation} — {_fmt_performance(row)} — PR: {pr_date_label}")
+        prompt = "add weight" if progression_type == "weight" else "add reps"
+        lines.append(
+            f"{emoji}  {row.exercise}{variation} — {_fmt_performance(row)} — {prompt} — PR: {pr_date_label}"
+        )
     return "\n".join(lines)
 
 

@@ -326,9 +326,10 @@ def test_stale_pr_increment_candidates_include_old_weighted_15_rep_pr(tmp_path: 
 
     result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
 
-    assert "Stale PRs ready for weight increase" in result
+    assert "Stale PRs ready for progression" in result
     assert "Calf Raise" in result
     assert "3×15 @ 20kg" in result
+    assert "add weight" in result
     assert "PR: 01 Jan 2026" in result
 
 
@@ -349,7 +350,26 @@ def test_stale_pr_increment_candidates_exclude_recent_pr(tmp_path: Path):
     assert result == ""
 
 
-def test_stale_pr_increment_candidates_exclude_low_rep_pr(tmp_path: Path):
+def test_stale_pr_increment_candidates_include_old_weighted_under_12_rep_pr(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Tricep Pushdown",
+        details="3x11 @ 25kg",
+        sets=3,
+        reps=11,
+        weight_kg=25.0,
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert "Tricep Pushdown" in result
+    assert "3×11 @ 25kg" in result
+    assert "add reps" in result
+
+
+def test_stale_pr_increment_candidates_exclude_middle_rep_pr(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
     _insert_strength(
         db,
@@ -442,27 +462,92 @@ def test_training_advice_suggests_stale_or_untrained_focus(tmp_path: Path):
     assert "Training coach" in result
     assert "- As of: 2026-02-05" in result
     assert "- Legs: no logged strength work yet" in result
-    assert "- Chest: last trained 35 days ago" in result
+    assert "- Chest:" not in result
     assert "Use this as advisory only" in result
 
 
-def test_training_advice_includes_progression_candidates(tmp_path: Path):
+def test_training_advice_includes_progression_candidates_for_next_area_only(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
     _insert_strength(
         db,
         workout_date="2026-01-01",
-        exercise="Calf Raise",
+        exercise="Dumbbell Shoulder Press",
         details="3x15 @ 20kg",
         sets=3,
         reps=15,
         weight_kg=20.0,
     )
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Dumbbell Bench Press",
+        details="3x15 @ 30kg",
+        sets=3,
+        reps=15,
+        weight_kg=30.0,
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-02-04",
+        exercise="Calf Raise",
+        details="3x10 @ 25kg",
+        sets=3,
+        reps=10,
+        weight_kg=25.0,
+    )
 
     result = format_training_advice(db, as_of=date(2026, 2, 5))
 
+    assert "- Shoulders & Abs:" in result
     assert "Progression prompts:" in result
-    assert "Calf Raise" in result
+    assert "Dumbbell Shoulder Press" in result
     assert "3×15 @ 20kg" in result
+    assert "Dumbbell Bench Press" not in result
+
+
+def test_training_advice_caps_progression_candidates_at_six(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    for idx, exercise in enumerate(
+        [
+            "Machine Shoulder Press",
+            "Dumbbell Shoulder Press",
+            "Arnold Press",
+            "Lateral Raise",
+            "Front Raise",
+            "Rear Delt Fly",
+            "Face Pull",
+        ],
+        start=1,
+    ):
+        _insert_strength(
+            db,
+            workout_date="2026-01-01",
+            exercise=exercise,
+            details=f"3x15 @ {idx}kg",
+            sets=3,
+            reps=15,
+            weight_kg=float(idx),
+        )
+    _insert_strength(
+        db,
+        workout_date="2026-02-04",
+        exercise="Calf Raise",
+        details="3x10 @ 25kg",
+        sets=3,
+        reps=10,
+        weight_kg=25.0,
+    )
+
+    result = format_training_advice(db, as_of=date(2026, 2, 5))
+    prompt_lines = [
+        line
+        for line in result.splitlines()
+        if line.startswith("- ") and " — " in line
+    ]
+
+    assert len(prompt_lines) == 6
+    assert any("Arnold Press" in line for line in prompt_lines)
+    assert all("Rear Delt Fly" not in line for line in prompt_lines)
 
 
 def test_progression_series_excludes_two_weighted_entries(tmp_path: Path):
