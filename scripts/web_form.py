@@ -8,6 +8,7 @@ existing tracker modules.
 from __future__ import annotations
 
 import argparse
+import gzip
 import html
 import secrets
 import sqlite3
@@ -24,6 +25,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tracker.core import ensure_db, now_ist  # noqa: E402
+from tracker.exercises import (  # noqa: E402
+    BODY_FOCUS_CHOICES,
+    BODY_PART_CHOICES,
+    EQUIPMENT_CHOICES,
+    EXERCISE_DEFAULT_BODY_PART,
+    EXERCISE_DEFAULT_EQUIPMENT,
+    EXERCISE_DEFAULT_PER_HAND,
+    EXERCISE_GROUPS,
+    LOG_ROW_COUNT,
+    VARIATION_CHOICES,
+)
 from tracker.models import (  # noqa: E402
     BODY_PART_VALUES,
     EQUIPMENT_VALUES,
@@ -44,189 +56,7 @@ from tracker.reports import (  # noqa: E402
 
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
-
-EXERCISE_GROUPS = {
-    "Chest": [
-        "Barbell Bench Press",
-        "Dumbbell Bench Press",
-        "Dumbbell Pec Fly",
-        "Pec Fly",
-        "Push Up",
-        "Vertical Chest Press Machine",
-    ],
-    "Back": [
-        "45 Degree T Bar Row",
-        "Assisted Pull Up",
-        "Back Extension",
-        "Barbell Deadlift",
-        "Chest Supported Rows",
-        "Compound Row Machine",
-        "Dumbbell Rows",
-        "Dumbbell Romanian Deadlift",
-        "Lat Pull Down",
-        "Pull Up",
-        "Seated Cable Row",
-        "Single Arm Dumbbell Row",
-        "Straight Arm Cable Pulldown",
-    ],
-    "Shoulders": [
-        "Cable Rope Upright Row",
-        "Dumbbell Arnold Press",
-        "Dumbbell Shoulder Press",
-        "Dumbbell Shrugs",
-        "Face Pull",
-        "Front Raise",
-        "Lateral Raise",
-        "Rear Delt Fly",
-    ],
-    "Biceps": [
-        "Small Barbell Curl",
-        "Bicep Curl on Cable",
-        "Bicep Preacher Curl",
-        "Chin Up",
-        "Dumbbell Bicep Curl",
-        "Dumbbell Hammer Curl",
-        "Hammer Curl on Cable",
-        "Reverse Curl on Cable",
-    ],
-    "Triceps": [
-        "Assisted Dips",
-        "Cable Overhead Tricep Extension",
-        "Dumbbell Overhead Tricep Extension",
-        "Tricep Pushdown",
-    ],
-    "Legs": [
-        "45 Degree Leg Press",
-        "Barbell Squat",
-        "Bodyweight Calf Raise",
-        "Bodyweight Squat",
-        "Bulgarian Split Squat",
-        "Calf Raise",
-        "Glute Kickback Machine",
-        "Goblet Squat",
-        "Hamstring Curl",
-        "Hip Abduction Machine",
-        "Hip Thrust",
-        "Horizontal Leg Press",
-        "Kettlebell Swing",
-        "Leg Extension",
-        "Sumo Squat",
-        "Weighted Lunge",
-    ],
-    "Core": [
-        "Bodyweight Abs Crunch",
-        "Decline Bench Situp",
-        "Leg Raise",
-        "Plank Oblique Crunch",
-        "Seated Abs Crunch Machine",
-        "Situps",
-    ],
-}
-
-EXERCISE_DEFAULT_EQUIPMENT = {
-    "45 Degree Leg Press": "machine",
-    "45 Degree T Bar Row": "machine",
-    "Assisted Dips": "machine",
-    "Assisted Pull Up": "machine",
-    "Barbell Bench Press": "barbell",
-    "Small Barbell Curl": "barbell",
-    "Barbell Deadlift": "barbell",
-    "Barbell Squat": "barbell",
-    "Back Extension": "bodyweight",
-    "Bicep Curl on Cable": "cable",
-    "Bicep Preacher Curl": "machine",
-    "Bodyweight Abs Crunch": "bodyweight",
-    "Bodyweight Calf Raise": "bodyweight",
-    "Bodyweight Squat": "bodyweight",
-    "Bulgarian Split Squat": "dumbbells",
-    "Cable Overhead Tricep Extension": "cable",
-    "Cable Rope Upright Row": "cable",
-    "Calf Raise": "machine",
-    "Chest Supported Rows": "machine",
-    "Chin Up": "bodyweight",
-    "Compound Row Machine": "machine",
-    "Dumbbell Arnold Press": "dumbbells",
-    "Dumbbell Bench Press": "dumbbells",
-    "Dumbbell Bicep Curl": "dumbbells",
-    "Dumbbell Hammer Curl": "dumbbells",
-    "Dumbbell Overhead Tricep Extension": "dumbbells",
-    "Dumbbell Pec Fly": "dumbbells",
-    "Dumbbell Romanian Deadlift": "dumbbells",
-    "Dumbbell Rows": "dumbbells",
-    "Dumbbell Shoulder Press": "dumbbells",
-    "Dumbbell Shrugs": "dumbbells",
-    "Decline Bench Situp": "bodyweight",
-    "Face Pull": "cable",
-    "Front Raise": "dumbbells",
-    "Glute Kickback Machine": "machine",
-    "Goblet Squat": "dumbbells",
-    "Hamstring Curl": "machine",
-    "Hammer Curl on Cable": "cable",
-    "Hip Abduction Machine": "machine",
-    "Hip Thrust": "other",
-    "Horizontal Leg Press": "machine",
-    "Kettlebell Swing": "kettlebell",
-    "Lat Pull Down": "machine",
-    "Lateral Raise": "dumbbells",
-    "Leg Extension": "machine",
-    "Leg Raise": "bodyweight",
-    "Pec Fly": "machine",
-    "Plank Oblique Crunch": "bodyweight",
-    "Pull Up": "bodyweight",
-    "Push Up": "bodyweight",
-    "Rear Delt Fly": "machine",
-    "Reverse Curl on Cable": "cable",
-    "Seated Abs Crunch Machine": "machine",
-    "Seated Cable Row": "machine",
-    "Single Arm Dumbbell Row": "dumbbells",
-    "Situps": "bodyweight",
-    "Straight Arm Cable Pulldown": "cable",
-    "Sumo Squat": "dumbbells",
-    "Tricep Pushdown": "cable",
-    "Vertical Chest Press Machine": "machine",
-    "Weighted Lunge": "dumbbells",
-}
-EXERCISE_DEFAULT_BODY_PART = {
-    exercise: group
-    for group, exercises in EXERCISE_GROUPS.items()
-    for exercise in exercises
-}
-EXERCISE_DEFAULT_PER_HAND = frozenset({
-    "Dumbbell Arnold Press",
-    "Dumbbell Bench Press",
-    "Dumbbell Bicep Curl",
-    "Dumbbell Hammer Curl",
-    "Dumbbell Pec Fly",
-    "Dumbbell Rows",
-    "Dumbbell Shoulder Press",
-    "Dumbbell Shrugs",
-    "Front Raise",
-    "Lateral Raise",
-    "Weighted Lunge",
-})
-
-VARIATION_CHOICES = ["default", "flat", "incline", "decline", "short grip", "wide grip", "reverse grip"]
-BODY_FOCUS_CHOICES = [
-    ("", "blank"),
-    ("Back,Biceps", "Back + Biceps"),
-    ("Chest,Triceps", "Chest + Triceps"),
-    ("Legs", "Legs"),
-    ("Shoulders,Core", "Shoulders + Abs"),
-]
-EQUIPMENT_CHOICES = [
-    "",
-    "bodyweight",
-    "dumbbells",
-    "barbell",
-    "machine",
-    "cable",
-    "kettlebell",
-    "smith machine",
-    "band",
-    "other",
-]
-BODY_PART_CHOICES = [""] + BODY_PART_ORDER
-LOG_ROW_COUNT = 6
+GZIP_MIN_BYTES = 1024
 
 
 @dataclass(frozen=True)
@@ -258,6 +88,17 @@ class FormSubmission:
 
 def _escape(value: object) -> str:
     return html.escape("" if value is None else str(value), quote=True)
+
+
+def _accepts_gzip(accept_encoding: str) -> bool:
+    return any(part.strip().split(";", 1)[0].lower() == "gzip" for part in accept_encoding.split(","))
+
+
+def _html_response_bytes(body: str, accept_encoding: str = "") -> tuple[bytes, str | None]:
+    encoded = body.encode("utf-8")
+    if len(encoded) < GZIP_MIN_BYTES or not _accepts_gzip(accept_encoding):
+        return encoded, None
+    return gzip.compress(encoded), "gzip"
 
 
 def _parse_int(value: str, field: str) -> int:
@@ -1126,9 +967,12 @@ class WorkoutFormHandler(BaseHTTPRequestHandler):
     db_path = DEFAULT_DB
 
     def _send_html(self, body: str, *, status: int = 200) -> None:
-        encoded = body.encode("utf-8")
+        encoded, content_encoding = _html_response_bytes(body, self.headers.get("Accept-Encoding", ""))
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Vary", "Accept-Encoding")
+        if content_encoding:
+            self.send_header("Content-Encoding", content_encoding)
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)

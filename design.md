@@ -31,7 +31,7 @@ Important invariants:
 - `per_hand=1` is valid only with `equipment='dumbbells'`.
 - `details` is derived display text; reports use structured fields.
 - `body_part` is saved from the form; reports fall back to name-based classification when it is blank.
-- Predefined form exercises should have nonblank default equipment and body-part metadata in `scripts/web_form.py`.
+- Predefined form exercises should have nonblank default equipment and body-part metadata in `tracker/exercises.py`.
 - `ensure_db()` in `tracker/core.py` creates and auto-migrates missing columns.
 
 ## Entry Rules
@@ -45,9 +45,9 @@ Form pages:
 - `PRs` renders the same PR report path as `scripts/summary.py --prs`, with an optional `?part=BodyPart` filter.
 - `Progression` renders SVG weight-history charts from structured weighted rows, with an optional `?part=BodyPart` filter.
 
-The `Log` page's predefined exercise dropdown is the source for automatic equipment, body-part, and default per-hand selection. Custom exercises bypass those defaults and should be logged with explicit equipment and body part.
+The `Log` page's predefined exercise dropdown uses `tracker/exercises.py` as the source for automatic equipment, body-part, and default per-hand selection. Custom exercises bypass those defaults and should be logged with explicit equipment and body part.
 
-The form runs on `127.0.0.1:8765` and is exposed privately with Tailscale Serve. It has no public-internet authentication layer, so do not bind it to a public interface without an auth proxy.
+The form runs on `127.0.0.1:8765` and is exposed privately with Tailscale Serve. It has no public-internet authentication layer, so do not bind it to a public interface without an auth proxy. HTML responses are gzip-compressed for clients that advertise support.
 
 ## Normalization
 

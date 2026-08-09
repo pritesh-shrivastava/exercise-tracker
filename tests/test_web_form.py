@@ -1,12 +1,12 @@
 """Tests for the small workout web form helpers."""
 
+import gzip
 import sqlite3
 from pathlib import Path
 
 from scripts.web_form import (
-    EXERCISE_DEFAULT_EQUIPMENT,
-    EXERCISE_GROUPS,
     FormRow,
+    _html_response_bytes,
     _parse_form_submission,
     _rows_from_post,
     consume_form_token,
@@ -22,6 +22,7 @@ from scripts.web_form import (
     update_form_row,
 )
 from tracker.core import ensure_db
+from tracker.exercises import EXERCISE_DEFAULT_EQUIPMENT, EXERCISE_GROUPS
 
 
 def test_form_row_applies_default_equipment() -> None:
@@ -441,6 +442,25 @@ def test_empty_bind_host_is_rejected() -> None:
         assert "--host resolved to an empty value" in str(exc)
     else:
         raise AssertionError("empty host should be rejected")
+
+
+def test_html_response_bytes_gzips_large_mobile_pages() -> None:
+    html = render_log_page()
+
+    encoded, content_encoding = _html_response_bytes(html, "br, gzip")
+
+    assert content_encoding == "gzip"
+    assert gzip.decompress(encoded).decode("utf-8") == html
+    assert len(encoded) < len(html.encode("utf-8"))
+
+
+def test_html_response_bytes_keeps_plain_html_without_gzip_support() -> None:
+    html = render_log_page()
+
+    encoded, content_encoding = _html_response_bytes(html, "br")
+
+    assert content_encoding is None
+    assert encoded == html.encode("utf-8")
 
 
 def test_render_prs_page_uses_report_path(tmp_path: Path) -> None:

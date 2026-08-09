@@ -11,6 +11,7 @@ data/                        — SQLite database
 tracker/
   __init__.py                — empty package marker
   models.py                  — shared workout row model, validation, details formatting
+  exercises.py               — predefined exercise groups, form choices, and selector defaults
   normalizer.py              — canonical exercise names + typo recovery
   core.py                    — DB helpers (fetch, format, auto-migrate)
   reports.py                 — PR reports, progression series, and coaching helpers
@@ -128,7 +129,9 @@ Pages:
 
 The form should not show "saved" until the SQLite write succeeds and the inserted rows are re-read from `data/workouts.sqlite`.
 
-The exercise selector carries default equipment, body-part, and per-hand metadata for every predefined exercise. Selecting a listed exercise pre-fills equipment and body part; bodyweight selections also clear the weight field. Custom exercises are allowed, but should include explicit equipment and body-part values because they do not have selector metadata.
+The exercise selector uses metadata from `tracker/exercises.py` for every predefined exercise. Selecting a listed exercise pre-fills equipment and body part; bodyweight selections also clear the weight field. Custom exercises are allowed, but should include explicit equipment and body-part values because they do not have selector metadata.
+
+HTML responses are gzip-compressed when the browser advertises support, which keeps the repeated mobile form controls and progression charts fast over Tailscale.
 
 ## Reporting and Inspection
 

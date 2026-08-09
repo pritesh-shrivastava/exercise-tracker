@@ -20,7 +20,7 @@ sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 ## Project structure
 
 ```
-tracker/          — core library (models, normalizer, core DB helpers, PR/progression reports)
+tracker/          — core library (models, exercise metadata, normalizer, core DB helpers, PR/progression reports)
 scripts/          — entry points and utilities (summary.py, web_form.py, backfill_structured.py, backup_db.py, restore_db.sh)
 tests/            — pytest suite (test_normalizer.py, test_reports.py, test_web_form.py)
 query_db.py       — does not exist; use `sqlite3 data/workouts.sqlite` directly
@@ -35,7 +35,7 @@ design.md         — data model, variation rules, logging behaviour
 - **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
 - **Valid variations**: `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`, `reverse grip`
-- **Form defaults**: every predefined exercise in `scripts/web_form.py` should have nonblank default equipment and body-part metadata; selecting an exercise pre-fills those fields
+- **Form defaults**: every predefined exercise in `tracker/exercises.py` should have nonblank default equipment and body-part metadata; selecting an exercise pre-fills those fields
 - **PR/progression filters**: `/prs?part=...` and `/progression?part=...` use the same `BODY_PART_ORDER` body-part dropdown
 - **Progression charts**: web-only `/progression`, grouped by exercise + variation, minimum 3 weighted entries, ordered by `BODY_PART_ORDER`; chart uses full history, table shows latest 3 entries
 - **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
