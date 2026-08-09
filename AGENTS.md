@@ -7,13 +7,13 @@ Personal workout tracker. Primary interface is the private mobile web form over 
 ```bash
 uv run python scripts/summary.py                           # recent activity
 uv run python scripts/summary.py --prs                     # personal records (compact, one line per exercise)
+# (use --prs for any weekly PR summary automation; no separate weekly_pr_summary script)
 uv run python scripts/summary.py --coach                   # DB-backed advisory coaching prompts
 uv run python scripts/web_form.py --host 127.0.0.1 --port 8765  # local form; production uses systemd + Tailscale Serve
 uv run pytest                                         # run tests
 uv run ruff check .                                   # lint
 uv run mypy tracker/ scripts/summary.py scripts/web_form.py  # type check
 uv run vulture tracker/ tests/ scripts/summary.py scripts/web_form.py  # dead code check
-uv run python scripts/backfill_structured.py           # backfill structured columns after schema change
 sqlite3 data/workouts.sqlite                          # inspect/edit DB directly
 ```
 

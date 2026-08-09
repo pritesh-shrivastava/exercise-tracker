@@ -168,10 +168,17 @@ sqlite3 data/workouts.sqlite "SELECT id, workout_date, exercise FROM workouts WH
 sqlite3 data/workouts.sqlite "SELECT exercise, GROUP_CONCAT(DISTINCT equipment), COUNT(*) FROM workouts GROUP BY exercise HAVING COUNT(DISTINCT equipment) > 1 ORDER BY exercise;"
 ```
 
-Backups run directly from cron/systemd or an explicit shell session:
+Backups are intended to be run via cron/systemd (or manually) using the backup script:
 
 ```bash
 uv run python scripts/backup_db.py
+```
+
+PR summaries do not require a separate “weekly_pr_summary” script. For a PR report (e.g. in a weekly cron email),
+use the existing summary entry point:
+
+```bash
+uv run python scripts/summary.py --prs
 ```
 
 ## Maintenance
