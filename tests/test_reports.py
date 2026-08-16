@@ -283,8 +283,8 @@ def test_format_prs_splits_variations_with_different_weight(tmp_path: Path):
     assert any("31kg" in ln and "short grip" in ln for ln in lat_lines)
 
 
-def test_format_prs_clubs_same_weight_variations(tmp_path: Path):
-    """Variations sharing the same PR weight stay clubbed on one line."""
+def test_format_prs_splits_variations_even_when_same_weight(tmp_path: Path):
+    """PR output always splits variations into separate lines (no collapsing)."""
     db = tmp_path / "workouts.sqlite"
     _insert_strength(
         db,
@@ -308,8 +308,10 @@ def test_format_prs_clubs_same_weight_variations(tmp_path: Path):
     )
     result = format_prs(db)
     lat_lines = [ln for ln in result.splitlines() if "Lat Pull Down" in ln]
-    assert len(lat_lines) == 1, f"same-weight variations should club into one line, got: {lat_lines}"
-    assert "short grip" in lat_lines[0] and "wide grip" in lat_lines[0]
+    assert len(lat_lines) == 2, f"expected one PR line per variation, got: {lat_lines}"
+    assert any("[short grip]" in ln for ln in lat_lines)
+    assert any("[wide grip]" in ln for ln in lat_lines)
+
 
 
 def test_stale_pr_increment_candidates_include_old_weighted_15_rep_pr(tmp_path: Path):

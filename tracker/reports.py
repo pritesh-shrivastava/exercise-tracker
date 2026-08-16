@@ -482,27 +482,10 @@ def pr_display_rows(db_path: Path) -> list[PRDisplayRow]:
                 grouped[part][exercise],
                 key=lambda item: (_VAR_ORDER.get(item[0], 2), item[0]),
             )
-            # Variations with different PR weights get their own line; variations
-            # that share the same weight stay clubbed on one line. (A bare
-            # "Lat Pull Down" at 35kg and "[short grip, wide grip]" at 31kg are
-            # distinct PRs and should not collapse into one.)
-            by_weight: dict[float | None, list[tuple[str, PRRow]]] = defaultdict(list)
+            # Always split PRs by variation (no collapsing multiple variations into
+            # one line, even when the PR weight/reps/sets are identical).
             for var, row in variations:
-                by_weight[row.weight_kg].append((var, row))
-            # Heaviest first; bodyweight (None) last.
-            for weight in sorted(
-                by_weight,
-                key=lambda x: (x is not None, x if x is not None else 0.0),
-                reverse=True,
-            ):
-                group = by_weight[weight]
-                # Representative within the weight group: best reps, then sets, then earliest.
-                row = max(group, key=lambda item: (
-                    item[1].reps, item[1].sets, _neg_date(item[1].workout_date)
-                ))[1]
-                non_default = [v for v, _ in group if v not in ("default", "")]
-                variation = ", ".join(non_default)
-
+                variation = "" if var in ("default", "") else var
                 perf = _fmt_performance(row)
                 date_str = _fmt_date(row.workout_date)
                 display_rows.append(PRDisplayRow(part, exercise, variation, perf, date_str))
