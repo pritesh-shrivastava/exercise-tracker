@@ -674,6 +674,55 @@ def _render_rows(rows: list[sqlite3.Row], *, include_id: bool = True) -> str:
     )
 
 
+def fetch_recent_body_part_summary(db_path: Path, *, limit_dates: int = 10) -> list[sqlite3.Row]:
+    ensure_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        return list(conn.execute(
+            """
+            WITH recent_dates AS (
+                SELECT workout_date
+                FROM workouts
+                WHERE workout_type = 'strength'
+                GROUP BY workout_date
+                ORDER BY workout_date DESC
+                LIMIT ?
+            )
+            SELECT w.workout_date,
+                   w.body_part,
+                   COUNT(DISTINCT w.exercise) AS exercise_count
+            FROM workouts w
+            JOIN recent_dates d ON d.workout_date = w.workout_date
+            WHERE w.workout_type = 'strength'
+            GROUP BY w.workout_date, w.body_part
+            ORDER BY w.workout_date DESC, exercise_count DESC, w.body_part ASC
+            """,
+            (limit_dates,),
+        ))
+
+
+def _render_recent_body_part_summary(rows: list[sqlite3.Row]) -> str:
+    if not rows:
+        return "<p>No rows.</p>"
+    blocks = []
+    current_date = ""
+    lines: list[str] = []
+    for row in rows:
+        if row["workout_date"] != current_date:
+            if lines:
+                blocks.append(
+                    f"<section><h2>{_escape(current_date)}</h2><ul>" + "".join(lines) + "</ul></section>"
+                )
+            current_date = str(row["workout_date"])
+            lines = []
+        lines.append(
+            f"<li>{_escape(row['body_part'])}: {row['exercise_count']} exercises</li>"
+        )
+    if lines:
+        blocks.append(f"<section><h2>{_escape(current_date)}</h2><ul>" + "".join(lines) + "</ul></section>")
+    return "".join(blocks)
+
+
 def render_log_page(
     *,
     saved: list[sqlite3.Row] | None = None,
@@ -756,10 +805,10 @@ def render_today_page(
 
 
 def render_recent_page(db_path: Path) -> str:
-    rows = fetch_recent_rows(db_path)
+    rows = fetch_recent_body_part_summary(db_path)
     body = f"""
 <h1>Recent</h1>
-{_render_rows(rows, include_id=False)}"""
+{_render_recent_body_part_summary(rows)}"""
     return _layout("Recent", body)
 
 

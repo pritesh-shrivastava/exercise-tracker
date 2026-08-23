@@ -690,24 +690,31 @@ def test_render_progression_page_uses_current_exercise_names(tmp_path: Path) -> 
 
 def test_render_recent_page_shows_last_10_without_ids(tmp_path: Path) -> None:
     db = tmp_path / "workouts.sqlite"
-    for idx in range(12):
-        insert_form_rows(db, [
-            FormRow(
-                workout_date="2026-06-16",
-                exercise=f"Test Exercise {idx}",
-                variation="default",
-                sets=3,
-                reps=12,
-                weight_kg=float(idx),
-                equipment="other",
-                per_hand=False,
-            )
-        ])
+    for idx, (date, part) in enumerate((
+        ("2026-06-15", "Back"),
+        ("2026-06-16", "Chest"),
+        ("2026-06-16", "Back"),
+    ), start=1):
+        for ex in range(idx):
+            insert_form_rows(db, [
+                FormRow(
+                    workout_date=date,
+                    exercise=f"Test Exercise {idx}-{ex}",
+                    variation="default",
+                    sets=3,
+                    reps=12,
+                    weight_kg=float(ex),
+                    equipment="other",
+                    per_hand=False,
+                    body_part=part,
+                )
+            ])
 
     html = render_recent_page(db)
 
     assert "<h1>Recent</h1>" in html
     assert "<th>ID</th>" not in html
-    assert "Test Exercise 11" in html
-    assert "Test Exercise 2" in html
-    assert "Test Exercise 0" not in html
+    assert "<h2>2026-06-16</h2>" in html
+    assert "<h2>2026-06-15</h2>" in html
+    assert html.index("<h2>2026-06-16</h2>") < html.index("<h2>2026-06-15</h2>")
+    assert html.index("Back: 3 exercises") < html.index("Chest: 2 exercises")
