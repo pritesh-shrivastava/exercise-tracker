@@ -121,8 +121,8 @@ def test_rear_delt_in_raw():
     ("kettleball swing", "Kettlebell Swing"),
     ("kettle bell swing", "Kettlebell Swing"),
     ("kettlebell swing", "Kettlebell Swing"),
-    ("deadlift", "Barbell Deadlift"),
-    ("barbell deadlift", "Barbell Deadlift"),
+    ("deadlift", "Barbell Romanian Deadlift"),
+    ("barbell deadlift", "Barbell Romanian Deadlift"),
     ("Dumbell Romanian Deadlift", "Dumbbell Romanian Deadlift"),
 ])
 def test_canonical(exercise, expected):

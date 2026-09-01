@@ -66,7 +66,7 @@ def _insert_strength(
     ("Pec Fly", "Chest"),
     ("Lat Pull Down", "Back"),
     ("Seated Row", "Back"),
-    ("Barbell Deadlift", "Back"),
+    ("Barbell Romanian Deadlift", "Back"),
     ("Shoulder Press", "Shoulders"),
     ("Lateral Raise", "Shoulders"),
     ("Rear Delt Fly", "Shoulders"),

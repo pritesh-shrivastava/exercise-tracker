@@ -173,7 +173,7 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert '<optgroup label="Biceps" data-original-index=' in html
     assert '<optgroup label="Triceps" data-original-index=' in html
     assert '<optgroup label="Back" data-original-index=' in html
-    assert 'value="Barbell Deadlift" data-equipment="barbell"' in html
+    assert 'value="Barbell Romanian Deadlift" data-equipment="barbell"' in html
     assert 'value="Dumbbell Bench Press" data-equipment="dumbbells" data-body-part="Chest" data-per-hand="1"' in html
     assert 'value="Weighted Lunge" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="1"' in html
     assert 'value="Goblet Squat" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="0"' in html
@@ -206,7 +206,7 @@ def test_post_rows_use_shared_workout_date() -> None:
     })
 
     assert [row.workout_date for row in rows] == ["2026-06-18", "2026-06-18"]
-    assert rows[1].exercise == "Barbell Deadlift"
+    assert rows[1].exercise == "Barbell Romanian Deadlift"
 
 
 def test_post_rows_accept_custom_exercise_without_dropdown_choice() -> None:
