@@ -314,17 +314,50 @@ def _activity_by_training_area(activity: Iterable[BodyPartActivity], as_of: date
 
 
 def _next_training_area(activity: Iterable[BodyPartActivity], as_of: date) -> TrainingAreaActivity:
-    focus_parts = _next_focus(activity)
+    """Pick the next training area by scoring *areas* directly.
+
+    Previous logic derived a per-body-part focus list and returned the first
+    part's area. That can overweight a single very-stale part (e.g. Core) even
+    when the paired part (e.g. Shoulders) was trained recently, producing an
+    unintuitive combined-area suggestion.
+
+    We instead rank areas by:
+      1) min(days_since) across its parts (older is better; None = highest priority)
+      2) max(days_since) across its parts (older is better)
+      3) fewer sessions_14d (encourage balance)
+      4) fewer entries_14d (encourage balance)
+    """
     areas = _activity_by_training_area(activity, as_of)
-    area_by_part = {
-        part: area_activity
-        for area_activity in areas
-        for part in area_activity.parts
-    }
-    for part_activity in focus_parts:
-        if part_activity.part in area_by_part:
-            return area_by_part[part_activity.part]
-    return areas[0]
+    if not areas:
+        # Should never happen because TRAINING_AREAS is static, but keep a safe default.
+        return TrainingAreaActivity(area="", parts=(), sessions_14d=0, entries_14d=0, last_trained=None, days_since=None)
+
+    def _area_rank(a: TrainingAreaActivity) -> tuple:
+        # Rank areas so that *untrained* parts are surfaced first, but keep the
+        # previous intent: among never-trained parts, prefer Legs.
+        never_priority = {"Legs": 0, "Shoulders": 1, "Core": 2, "Biceps": 3, "Triceps": 4}
+
+        # NOTE: We do *not* use TrainingAreaActivity.days_since here because it is
+        # the max of the area's parts and can hide that one of the paired parts is recent.
+        by_part = {row.part: row for row in activity}
+        part_rows = [by_part.get(part, BodyPartActivity(part, 0, 0, None, None)) for part in a.parts]
+
+        missing_parts = [row.part for row in part_rows if row.days_since is None]
+        if missing_parts:
+            best_missing = min(never_priority.get(part, 99) for part in missing_parts)
+            # prefer an area with more missing parts when priority matches
+            return (10_000, 10_000, -best_missing, len(missing_parts), 0, 0)
+
+        days = [row.days_since for row in part_rows if row.days_since is not None]
+        min_days = min(days) if days else 0
+        max_days = max(days) if days else 0
+
+        sessions = sum(row.sessions_14d for row in part_rows)
+        entries = sum(row.entries_14d for row in part_rows)
+        # Higher min/max days is better; lower sessions/entries is better.
+        return (min_days, max_days, 0, 0, -sessions, -entries)
+
+    return max(areas, key=_area_rank)
 
 
 def _focus_status(row: BodyPartActivity | TrainingAreaActivity) -> str:

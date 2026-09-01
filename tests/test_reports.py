@@ -507,6 +507,39 @@ def test_training_advice_includes_progression_candidates_for_next_area_only(tmp_
     assert "Dumbbell Bench Press" not in result
 
 
+def test_training_advice_prefers_area_whose_most_recent_part_is_staler(tmp_path: Path):
+    """Regression: avoid picking an area just because one paired part is very stale.
+
+    Scenario (as_of=2026-09-01):
+      Chest=1, Triceps=1
+      Shoulders=3, Core=10
+      Back=8, Biceps=8
+      Legs=6
+    Expect: Back & Biceps (min-days-since=8) beats Shoulders & Abs (min=3).
+    """
+    db = tmp_path / "workouts.sqlite"
+
+    # Chest & Triceps: last trained 1 day ago
+    _insert_strength(db, workout_date="2026-08-31", exercise="Dumbbell Bench Press", details="3x10 @ 30kg", sets=3, reps=10, weight_kg=30.0, body_part="Chest")
+    _insert_strength(db, workout_date="2026-08-31", exercise="Tricep Pushdown", details="3x12 @ 25kg", sets=3, reps=12, weight_kg=25.0, body_part="Triceps")
+
+    # Shoulders & Abs: shoulders 3 days ago, core 10 days ago
+    _insert_strength(db, workout_date="2026-08-29", exercise="Dumbbell Shoulder Press", details="3x12 @ 20kg", sets=3, reps=12, weight_kg=20.0, body_part="Shoulders")
+    _insert_strength(db, workout_date="2026-08-22", exercise="Abs Crunch", details="3x15", sets=3, reps=15, weight_kg=None, equipment="bodyweight", body_part="Core")
+
+    # Back & Biceps: both 8 days ago
+    _insert_strength(db, workout_date="2026-08-24", exercise="Lat Pull Down", details="3x12 @ 35kg", sets=3, reps=12, weight_kg=35.0, body_part="Back")
+    _insert_strength(db, workout_date="2026-08-24", exercise="Dumbbell Bicep Curl", details="3x12 @ 15kg", sets=3, reps=12, weight_kg=15.0, body_part="Biceps")
+
+    # Legs: 6 days ago
+    _insert_strength(db, workout_date="2026-08-26", exercise="Calf Raise", details="3x12 @ 25kg", sets=3, reps=12, weight_kg=25.0, body_part="Legs")
+
+    result = format_training_advice(db, as_of=date(2026, 9, 1))
+
+    assert "Suggested next focus:" in result
+    assert "- Back & Biceps:" in result
+
+
 def test_training_advice_caps_progression_candidates_at_six(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
     for idx, exercise in enumerate(
