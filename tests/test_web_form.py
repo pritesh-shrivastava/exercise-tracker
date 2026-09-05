@@ -260,7 +260,7 @@ def test_post_rows_do_not_apply_mixed_body_focus_to_custom_exercise() -> None:
 
     assert len(rows) == 1
     assert rows[0].exercise == "Sled Push"
-    assert rows[0].body_part == "Other"
+    assert rows[0].body_part == ""
 
 
 def test_form_submission_keeps_valid_rows_when_another_row_is_invalid() -> None:

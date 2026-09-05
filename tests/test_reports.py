@@ -86,7 +86,7 @@ def _insert_strength(
     ("Dips", "Triceps"),
     ("Abs Crunch", "Core"),
     ("Plank", "Core"),
-    ("Something Random", "Other"),
+    ("Something Random", ""),
     ("Face Pull", "Shoulders"),
     ("Dumbbell Shrugs", "Shoulders"),
 ])

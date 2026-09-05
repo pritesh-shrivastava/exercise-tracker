@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterable
 
-BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Other"]
+BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core"]
 
 # Canonical training split (advisory): 4-day Upper/Lower hypertrophy rotation.
 # The coach suggestions below are still DB-driven (frequency-based), but when multiple
@@ -28,7 +28,6 @@ BODY_PART_EMOJI = {
     "Triceps": "🔻",
     "Legs": "🦵",
     "Core": "⚡",
-    "Other": "📦",
 }
 
 
@@ -132,7 +131,7 @@ def body_part(exercise: str) -> str:
         return "Triceps"
     if any(t in name for t in ["crunch", "abs", "plank", "core", "leg raises", "leg raise", "situp", "situps"]):
         return "Core"
-    return "Other"
+    return ""
 
 
 def row_body_part(exercise: str, stored_body_part: str | None = None) -> str:
@@ -271,7 +270,7 @@ def _activity_by_body_part(db_path: Path, as_of: date) -> list[BodyPartActivity]
 
 
 def _next_focus(activity: Iterable[BodyPartActivity]) -> list[BodyPartActivity]:
-    eligible = [row for row in activity if row.part != "Other"]
+    eligible = list(activity)
     never_trained = [row for row in eligible if row.days_since is None]
     previously_trained = [row for row in eligible if row.days_since is not None]
     stale = sorted(

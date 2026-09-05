@@ -34,7 +34,7 @@ EQUIPMENT_VALUES = frozenset({
     "dumbbells", "barbell", "machine", "cable", "bodyweight",
     "kettlebell", "smith machine", "band", "other", "",
 })
-BODY_PART_VALUES = frozenset({"Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Other", ""})
+BODY_PART_VALUES = frozenset({"Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", ""})
 
 
 def format_details(sets: int, reps: int, weight_kg: float | None) -> str:

@@ -350,7 +350,8 @@ def _parse_form_submission(data: dict[str, list[str]]) -> FormSubmission:
     flattened = _flatten_form(data)
     shared_date = flattened.get("workout_date", "").strip()
     shared_body_focus = flattened.get("body_focus", "")
-    default_body_part = shared_body_focus if shared_body_focus in BODY_PART_ORDER else ""
+    # Log page 'body_focus' is now a single body-part choice.
+    default_body_part = shared_body_focus if shared_body_focus in BODY_PART_VALUES else ""
     for idx in range(1, LOG_ROW_COUNT + 1):
         prefix = f"r{idx}_"
         row_fields = ("exercise", "custom_exercise", "sets", "reps", "weight_kg")
