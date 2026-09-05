@@ -463,7 +463,7 @@ def test_training_advice_suggests_stale_or_untrained_focus(tmp_path: Path):
 
     assert "Training coach" in result
     assert "- As of: 2026-02-05" in result
-    assert "- Legs: no logged strength work yet" in result
+    assert "- Upper:" in result
     assert "- Chest:" not in result
     assert "Use this as advisory only" in result
 
@@ -500,23 +500,15 @@ def test_training_advice_includes_progression_candidates_for_next_area_only(tmp_
 
     result = format_training_advice(db, as_of=date(2026, 2, 5))
 
-    assert "- Shoulders & Abs:" in result
+    assert "- Upper:" in result
     assert "Progression prompts:" in result
     assert "Dumbbell Shoulder Press" in result
     assert "3×15 @ 20kg" in result
-    assert "Dumbbell Bench Press" not in result
+    assert "Dumbbell Bench Press" in result
 
 
 def test_training_advice_prefers_area_whose_most_recent_part_is_staler(tmp_path: Path):
-    """Regression: avoid picking an area just because one paired part is very stale.
-
-    Scenario (as_of=2026-09-01):
-      Chest=1, Triceps=1
-      Shoulders=3, Core=10
-      Back=8, Biceps=8
-      Legs=6
-    Expect: Back & Biceps (min-days-since=8) beats Shoulders & Abs (min=3).
-    """
+    """Regression: avoid picking an area just because one sub-part is very stale."""
     db = tmp_path / "workouts.sqlite"
 
     # Chest & Triceps: last trained 1 day ago
@@ -537,7 +529,7 @@ def test_training_advice_prefers_area_whose_most_recent_part_is_staler(tmp_path:
     result = format_training_advice(db, as_of=date(2026, 9, 1))
 
     assert "Suggested next focus:" in result
-    assert "- Back & Biceps:" in result
+    assert "- Lower:" in result
 
 
 def test_training_advice_caps_progression_candidates_at_six(tmp_path: Path):

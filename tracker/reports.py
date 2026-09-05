@@ -10,11 +10,14 @@ from pathlib import Path
 from typing import Iterable
 
 BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Other"]
+
+# Canonical training split (advisory): 4-day Upper/Lower hypertrophy rotation.
+# The coach suggestions below are still DB-driven (frequency-based), but when multiple
+# areas tie, we prefer the Upper/Lower pattern over the legacy PPL + shoulders/abs.
 TRAINING_AREAS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Chest & Triceps", ("Chest", "Triceps")),
-    ("Back & Biceps", ("Back", "Biceps")),
-    ("Shoulders & Abs", ("Shoulders", "Core")),
-    ("Legs", ("Legs",)),
+    # Prefer Upper before Lower when the DB-derived staleness metrics tie.
+    ("Upper", ("Chest", "Back", "Shoulders", "Biceps", "Triceps")),
+    ("Lower", ("Legs", "Core")),
 )
 COACH_PROGRESSION_PROMPT_LIMIT = 6
 BODY_PART_EMOJI = {
@@ -313,40 +316,35 @@ def _activity_by_training_area(activity: Iterable[BodyPartActivity], as_of: date
     return areas
 
 
-def _next_training_area(activity: Iterable[BodyPartActivity], as_of: date) -> TrainingAreaActivity:
+def _next_training_area(activity: list[BodyPartActivity], as_of: date) -> TrainingAreaActivity:
     """Pick the next training area by scoring *areas* directly.
 
-    Previous logic derived a per-body-part focus list and returned the first
-    part's area. That can overweight a single very-stale part (e.g. Core) even
-    when the paired part (e.g. Shoulders) was trained recently, producing an
-    unintuitive combined-area suggestion.
+    Rank areas by:
+      1) untrained parts first (any None days_since)
+      2) min(days_since) across its parts (older is better)
+      3) max(days_since) across its parts (older is better)
+      4) fewer sessions_14d (encourage balance)
+      5) fewer entries_14d (encourage balance)
 
-    We instead rank areas by:
-      1) min(days_since) across its parts (older is better; None = highest priority)
-      2) max(days_since) across its parts (older is better)
-      3) fewer sessions_14d (encourage balance)
-      4) fewer entries_14d (encourage balance)
+    Ties are broken deterministically by the order of TRAINING_AREAS.
     """
+
     areas = _activity_by_training_area(activity, as_of)
     if not areas:
         # Should never happen because TRAINING_AREAS is static, but keep a safe default.
         return TrainingAreaActivity(area="", parts=(), sessions_14d=0, entries_14d=0, last_trained=None, days_since=None)
 
-    def _area_rank(a: TrainingAreaActivity) -> tuple:
-        # Rank areas so that *untrained* parts are surfaced first, but keep the
-        # previous intent: among never-trained parts, prefer Legs.
-        never_priority = {"Legs": 0, "Shoulders": 1, "Core": 2, "Biceps": 3, "Triceps": 4}
+    by_part = {row.part: row for row in activity}
 
-        # NOTE: We do *not* use TrainingAreaActivity.days_since here because it is
-        # the max of the area's parts and can hide that one of the paired parts is recent.
-        by_part = {row.part: row for row in activity}
+    def _area_rank(a: TrainingAreaActivity) -> tuple:
         part_rows = [by_part.get(part, BodyPartActivity(part, 0, 0, None, None)) for part in a.parts]
 
-        missing_parts = [row.part for row in part_rows if row.days_since is None]
-        if missing_parts:
-            best_missing = min(never_priority.get(part, 99) for part in missing_parts)
-            # prefer an area with more missing parts when priority matches
-            return (10_000, 10_000, -best_missing, len(missing_parts), 0, 0)
+        missing = sum(1 for row in part_rows if row.days_since is None)
+        if missing:
+            # If either area has never-trained parts, prioritize the one with MORE missing.
+            # Break ties by preferring Lower (legs are easy to accidentally under-train).
+            lower_bias = 1 if a.area == "Lower" else 0
+            return (10_000, 10_000, missing, lower_bias, 0, 0)
 
         days = [row.days_since for row in part_rows if row.days_since is not None]
         min_days = min(days) if days else 0
@@ -354,7 +352,9 @@ def _next_training_area(activity: Iterable[BodyPartActivity], as_of: date) -> Tr
 
         sessions = sum(row.sessions_14d for row in part_rows)
         entries = sum(row.entries_14d for row in part_rows)
-        # Higher min/max days is better; lower sessions/entries is better.
+        # Prefer the area whose MOST RECENT part is staler (higher min_days), then
+        # whose stalest part is also older (higher max_days), then lower volume.
+        # NOTE: We return a tuple for max(..., key=...).
         return (min_days, max_days, 0, 0, -sessions, -entries)
 
     return max(areas, key=_area_rank)

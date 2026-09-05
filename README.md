@@ -75,45 +75,75 @@ uv run python scripts/web_form.py --host 127.0.0.1 --port 8765
 
 Do not bind this app to a public VPS interface unless you add real authentication in front of it. The stdlib web form intentionally has no public-internet auth layer; Tailscale is the access control boundary.
 
-## Weekly training template
+## Weekly training template (canonical)
 
-Your plan is aspirational, so the tracker should work even when you only train 3–4 days a week.
+The tracker is designed to work even when you only train 3–4 days/week. The canonical plan is a simple 4-day Upper/Lower hypertrophy rotation (~60 minutes).
 
-### Priority rotation
+### Priority rotation (Upper/Lower)
 
 Follow the next available slot instead of forcing a rigid calendar:
 
-1. Pull — back + biceps
-2. Push — chest + triceps
-3. Legs
-4. Shoulders + abs
-5. Functional / yoga / taichi
-6. Swimming / badminton / walk
+1. Upper A
+2. Lower A (+ arms + abs)
+3. Upper B
+4. Lower B (+ arms + abs)
+
+#### Upper A
+
+- Barbell Bench Press — 4×6–10
+- Chest Supported Rows — 4×8–12
+- Lat Pull Down (wide grip) — 3×10–15
+- Vertical Chest Press Machine — 2×10–15
+- Lateral Raise — 2×12–20
+
+#### Lower A (+ arms + abs)
+
+- Horizontal Leg Press — 4×10–15
+- Leg Extension — 3×12–20
+- Hamstring Curl — 3×10–15
+- Superset: Tricep Pushdown — 3×10–15 + Dumbbell Bicep Curl — 3×10–15
+- Hanging Knee Raise — 3×8–15
+- Optional: Calf Raise — 2×10–15
+
+#### Upper B
+
+- Lat Pull Down (short grip) *or* Assisted Pull Up — 4×8–12
+- Seated Cable Row — 4×8–12
+- Dumbbell Shoulder Press — 3×6–10
+- Face Pull — 3×12–20
+- Rear Delt Fly — 2×12–20
+
+#### Lower B (+ arms + abs)
+
+- Barbell Romanian Deadlift — 4×6–10
+- Goblet Squat — 3×10–15
+- Glute Kickback Machine — 3×10–15
+- Superset: Cable Overhead Tricep Extension — 3×10–15 + Dumbbell Hammer Curl — 3×8–12
+- Bodyweight Abs Crunch — 3×12–25
+- Optional: Hamstring Curl — 2×10–15
 
 ### If you train 3 days in a week
 
-- Day 1: Back + Biceps
-- Day 2: Chest + Triceps
-- Day 3: Legs
+Run the first 3 slots and pick up where you left off next time:
+
+- Day 1: Upper A
+- Day 2: Lower A
+- Day 3: Upper B
 
 ### If you train 4 days in a week
 
-- Day 1: Back + Biceps
-- Day 2: Chest + Triceps
-- Day 3: Legs
-- Day 4: Shoulders + Abs
+- Day 1: Upper A
+- Day 2: Lower A
+- Day 3: Upper B
+- Day 4: Lower B
 
 ### If you train 5 days in a week
 
-- Day 1: Back + Biceps
-- Day 2: Chest + Triceps
-- Day 3: Legs
-- Day 4: Shoulders + Abs
-- Day 5: Functional / yoga / taichi
-
-### Bonus day
-
-- Swimming / badminton / walk
+- Day 1: Upper A
+- Day 2: Lower A
+- Day 3: Upper B
+- Day 4: Lower B
+- Day 5: Optional conditioning / mobility (easy)
 
 ## Workout form
 
