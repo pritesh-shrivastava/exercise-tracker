@@ -158,9 +158,13 @@ def test_log_page_uses_grouped_exercise_select() -> None:
 
     assert 'name="workout_date"' in html
     assert 'name="body_focus"' in html
-    assert 'value="Back,Biceps"' in html
-    assert 'value="Chest,Triceps"' in html
-    assert 'value="Shoulders,Core"' in html
+    assert 'value="Chest"' in html
+    assert 'value="Back"' in html
+    assert 'value="Shoulders"' in html
+    assert 'value="Biceps"' in html
+    assert 'value="Triceps"' in html
+    assert 'value="Legs"' in html
+    assert 'value="Core"' in html
     assert html.count("<legend>Row ") == 6
     assert 'name="r1_workout_date"' not in html
     assert 'name="r6_exercise"' in html

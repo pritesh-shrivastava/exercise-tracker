@@ -761,7 +761,7 @@ def render_log_page(
 <form method="post" action="/log">
   <input type="hidden" name="token" value="{_escape(token)}">
   <label>Workout date<input type="date" name="workout_date" value="{_escape(selected_date)}"></label>
-  <label>Body part trained<select name="body_focus">{_labelled_options(BODY_FOCUS_CHOICES, body_focus)}</select></label>
+  <label>Body part trained<select name="body_focus">{_options(BODY_PART_CHOICES, body_focus)}</select></label>
   {fieldsets}
   <button class="primary" type="submit">Save Rows</button>
 </form>"""
