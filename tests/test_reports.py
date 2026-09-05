@@ -569,7 +569,7 @@ def test_training_advice_caps_progression_candidates_at_six(tmp_path: Path):
     prompt_lines = [
         line
         for line in result.splitlines()
-        if line.startswith("- ") and " — " in line
+        if line.startswith("- ") and " — " in line and "PR:" in line
     ]
 
     assert len(prompt_lines) == 6

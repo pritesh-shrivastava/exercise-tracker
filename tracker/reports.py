@@ -19,6 +19,25 @@ TRAINING_AREAS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Upper", ("Chest", "Back", "Shoulders", "Biceps", "Triceps")),
     ("Lower", ("Legs", "Core")),
 )
+
+# Canonical exercise templates (docs source of truth: README.md).
+# The coach prints these alongside the next-focus suggestion so you can act immediately.
+COACH_EXERCISE_TEMPLATES: dict[str, list[str]] = {
+    "Upper": [
+        "Barbell Bench Press — 4×6–10",
+        "Chest Supported Rows — 4×8–12",
+        "Lat Pull Down (wide grip) — 3×10–15",
+        "Vertical Chest Press Machine — 2×10–15",
+        "Lateral Raise — 2×12–20",
+    ],
+    "Lower": [
+        "Horizontal Leg Press — 4×10–15",
+        "Leg Extension — 3×12–20",
+        "Hamstring Curl — 3×10–15",
+        "Arms: Tricep Pushdown + Dumbbell Bicep Curl — 3 sets each",
+        "Core: Hanging Knee Raise / Bodyweight Abs Crunch — 3 sets",
+    ],
+}
 COACH_PROGRESSION_PROMPT_LIMIT = 6
 BODY_PART_EMOJI = {
     "Chest": "🩻",
@@ -393,6 +412,11 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
     ]
     status = _focus_status(focus)
     lines.append(f"- {focus.area}: {status}; {focus.sessions_14d} sessions / {focus.entries_14d} entries in 14d")
+
+    template = COACH_EXERCISE_TEMPLATES.get(focus.area)
+    if template:
+        lines.extend(["", "Suggested exercises:"])
+        lines.extend(f"- {item}" for item in template)
 
     lines.extend(["", "Progression prompts:"])
     progression = format_stale_pr_increment_candidates(db_path, as_of=today, body_parts=focus.parts)
