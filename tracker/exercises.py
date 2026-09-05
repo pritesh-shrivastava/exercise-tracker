@@ -75,6 +75,7 @@ EXERCISE_GROUPS = {
     "Core": [
         "Bodyweight Abs Crunch",
         "Decline Bench Situp",
+        "Hanging Knee Raise",
         "Leg Raise",
         "Plank Oblique Crunch",
         "Seated Abs Crunch Machine",
@@ -121,6 +122,7 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Goblet Squat": "dumbbells",
     "Hamstring Curl": "machine",
     "Hammer Curl on Cable": "cable",
+    "Hanging Knee Raise": "bodyweight",
     "Hip Abduction Machine": "machine",
     "Hip Thrust": "other",
     "Horizontal Leg Press": "machine",

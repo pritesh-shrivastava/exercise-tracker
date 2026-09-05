@@ -49,6 +49,14 @@ def test_typo_hanstring_curl():
     assert normalize_exercise("hanstring curl", "") == "Hamstring Curl"
 
 
+def test_hanging_knee_raise():
+    assert normalize_exercise("hanging knee raise", "") == "Hanging Knee Raise"
+
+
+def test_hangong_knee_raise_typo():
+    assert normalize_exercise("hangong knee raise", "") == "Hanging Knee Raise"
+
+
 # --- Lat pull-down variants ---
 
 def test_lat_pull_down_plain():
@@ -124,6 +132,8 @@ def test_rear_delt_in_raw():
     ("deadlift", "Barbell Romanian Deadlift"),
     ("barbell deadlift", "Barbell Romanian Deadlift"),
     ("Dumbell Romanian Deadlift", "Dumbbell Romanian Deadlift"),
+    ("hanging knee raise", "Hanging Knee Raise"),
+    ("hangong knee raise", "Hanging Knee Raise"),
 ])
 def test_canonical(exercise, expected):
     assert normalize_exercise(exercise, "") == expected

@@ -80,6 +80,8 @@ _CANONICAL: dict[str, str] = {
     "dumbbell romanian deadlift": "Dumbbell Romanian Deadlift",
     "chest supported row": "Chest Supported Rows",
     "chest supported rows": "Chest Supported Rows",
+    "hanging knee raise": "Hanging Knee Raise",
+    "hangong knee raise": "Hanging Knee Raise",
 }
 
 
@@ -113,6 +115,9 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
     if "calf rause" in combined:
         return "Calf Raise"
 
+    if "hanging knee raise" in combined or "hangong knee raise" in combined:
+        return "Hanging Knee Raise"
+
     if "lat pull down" in combined or "lat pulldown" in combined:
         return "Lat Pull Down"
 
@@ -121,6 +126,9 @@ def normalize_exercise(exercise: str, raw_text: str = "") -> str:
 
     if ex in _CANONICAL:
         return _CANONICAL[ex]
+
+    if ex in {"hanging knee raise", "hangong knee raise"}:
+        return "Hanging Knee Raise"
 
     # Strip "dumbbell " prefix before canonical lookup
     if ex.startswith("dumbbell "):

@@ -182,6 +182,7 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert 'value="Barbell Incline Press"' not in html
     assert 'value="Bodyweight Squat" data-equipment="bodyweight" data-body-part="Legs"' in html
     assert 'value="Kettlebell Swing" data-equipment="kettlebell" data-body-part="Legs"' in html
+    assert 'value="Hanging Knee Raise" data-equipment="bodyweight" data-body-part="Core"' in html
     assert "data-exercise-select" in html
     assert 'name="r1_body_part"' in html
     assert 'value="Hammer Curl"' not in html
