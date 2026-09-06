@@ -118,6 +118,9 @@ def body_part(exercise: str) -> str:
         "bench press", "incline press", "pec fly", "chest press", "chest fly",
         "push up", "pushup",
     ]
+    legs_priority = [
+        "romanian deadlift",
+    ]
     back = [
         "lat pull down", "lat pulldown", "pulldown", "row", "pullup", "pull up",
         "back extension", "deadlift",
@@ -138,6 +141,8 @@ def body_part(exercise: str) -> str:
     triceps_exclude = ["back extension", "leg extension"]
     if any(t in name for t in chest):
         return "Chest"
+    if any(t in name for t in legs_priority):
+        return "Legs"
     if any(t in name for t in back) and "rear delt" not in name and not any(t in name for t in back_exclude):
         return "Back"
     if any(t in name for t in shoulders):
