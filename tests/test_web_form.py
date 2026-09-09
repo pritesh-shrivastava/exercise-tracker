@@ -11,6 +11,7 @@ from scripts.web_form import (
     _rows_from_post,
     consume_form_token,
     delete_form_row,
+    fetch_recent_exercise_names,
     form_row_from_values,
     insert_form_rows,
     new_form_token,
@@ -191,6 +192,52 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert 'name="r1_body_part"' in html
     assert 'value="Hammer Curl"' not in html
     assert 'value="Preacher Curl"' not in html
+
+
+def test_fetch_recent_exercise_names_returns_db_only_exercises_in_recency_order(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    ensure_db(db)
+
+    with sqlite3.connect(db) as conn:
+        conn.executemany(
+            """
+            INSERT INTO workouts (
+                logged_at, workout_date, workout_type, exercise, variation, details,
+                raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part
+            ) VALUES (?, ?, 'strength', ?, 'default', ?, ?, 'form', ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                ("2026-06-20T10:00:00+05:30", "2026-06-20", "Bent Over Cable Row", "3x12@20", "Bent Over Cable Row", 3, 12, 20.0, "cable", 0, "Back"),
+                ("2026-06-21T10:00:00+05:30", "2026-06-21", "Cable Chest Fly", "3x12@15", "Cable Chest Fly", 3, 12, 15.0, "cable", 0, "Chest"),
+                ("2026-06-22T10:00:00+05:30", "2026-06-22", "Dumbbell Bench Press", "3x12@20", "Dumbbell Bench Press", 3, 12, 20.0, "dumbbells", 1, "Chest"),
+                ("2026-06-23T10:00:00+05:30", "2026-06-23", "Cable Chest Fly", "3x15@17.5", "Cable Chest Fly", 3, 15, 17.5, "cable", 0, "Chest"),
+            ],
+        )
+        conn.commit()
+
+    assert fetch_recent_exercise_names(db, limit=3) == [
+        "Cable Chest Fly",
+        "Dumbbell Bench Press",
+        "Bent Over Cable Row",
+    ]
+
+
+def test_log_page_shows_db_only_recent_exercises(monkeypatch, tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    db.touch()
+    monkeypatch.setattr("scripts.web_form.DEFAULT_DB", db)
+    monkeypatch.setattr(
+        "scripts.web_form.fetch_recent_exercise_names",
+        lambda db_path, limit=20: ["Cable Chest Fly", "Bent Over Cable Row", "Dumbbell Bench Press"],
+    )
+
+    html = render_log_page()
+
+    assert '<optgroup label="Recent">' in html
+    assert 'value="Cable Chest Fly"' in html
+    assert 'value="Bent Over Cable Row"' in html
+    assert 'value="Dumbbell Bench Press"' in html
+    assert 'Recent">' in html.split('value="Dumbbell Bench Press"', 1)[0]
 
 
 def test_post_rows_use_shared_workout_date() -> None:

@@ -57,6 +57,7 @@ from tracker.reports import (  # noqa: E402
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
 GZIP_MIN_BYTES = 1024
+RECENT_EXERCISE_LIMIT = 20
 
 
 @dataclass(frozen=True)
@@ -321,6 +322,25 @@ def fetch_recent_rows(db_path: Path, limit: int = 10) -> list[sqlite3.Row]:
         ))
 
 
+def fetch_recent_exercise_names(db_path: Path, limit: int = RECENT_EXERCISE_LIMIT) -> list[str]:
+    ensure_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = list(conn.execute(
+            """
+            SELECT exercise, MAX(id) AS last_id
+            FROM workouts
+            WHERE workout_type = 'strength'
+              AND exercise != ''
+            GROUP BY exercise
+            ORDER BY last_id DESC, exercise ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ))
+    return [str(row["exercise"]) for row in rows]
+
+
 def _flatten_form(data: dict[str, list[str]]) -> dict[str, str]:
     return {key: values[-1] if values else "" for key, values in data.items()}
 
@@ -579,7 +599,7 @@ def _labelled_options(values: list[tuple[str, str]], selected: str) -> str:
     )
 
 
-def _exercise_options(selected: str) -> str:
+def _exercise_options(selected: str, *, recent_exercises: list[str] | None = None) -> str:
     parts = []
     seen: set[str] = set()
     for idx, (group, exercises) in enumerate(EXERCISE_GROUPS.items()):
@@ -599,6 +619,15 @@ def _exercise_options(selected: str) -> str:
         parts.append(
             f'<optgroup label="{_escape(group)}" data-original-index="{idx}">{"".join(options)}</optgroup>'
         )
+    recent_options = []
+    for exercise in recent_exercises or []:
+        if exercise in seen:
+            continue
+        seen.add(exercise)
+        is_selected = " selected" if exercise == selected else ""
+        recent_options.append(f'<option value="{_escape(exercise)}"{is_selected}>{_escape(exercise)}</option>')
+    if recent_options:
+        parts.insert(0, f'<optgroup label="Recent">{"".join(recent_options)}</optgroup>')
     if selected and selected not in seen:
         parts.insert(0, f'<option value="{_escape(selected)}" selected>{_escape(selected)}</option>')
     return '<option value=""></option>' + "".join(parts)
@@ -610,6 +639,7 @@ def _row_fields(
     workout_date: str,
     row: Mapping[str, Any] | sqlite3.Row | None = None,
     include_date: bool = True,
+    recent_exercises: list[str] | None = None,
 ) -> str:
     values: dict[str, Any] = dict(row) if row is not None else {}
     date_value = values.get("workout_date", workout_date)
@@ -634,7 +664,7 @@ def _row_fields(
 <div class="grid">
   {date_field}
   <label class="exercise">Exercise
-    <select name="{prefix}exercise" data-exercise-select>{_exercise_options(str(exercise))}</select>
+    <select name="{prefix}exercise" data-exercise-select>{_exercise_options(str(exercise), recent_exercises=recent_exercises)}</select>
   </label>
   <label class="custom-exercise">Custom exercise
     <input name="{prefix}custom_exercise" value="{_escape(custom_exercise)}" placeholder="Type only if not listed">
@@ -735,6 +765,7 @@ def render_log_page(
     today = now_ist().date().isoformat()
     token = new_form_token()
     selected_date = workout_date or today
+    recent_exercises = fetch_recent_exercise_names(DEFAULT_DB) if DEFAULT_DB.exists() else []
     notices = []
     if saved is not None:
         notices.append(
@@ -746,13 +777,13 @@ def render_log_page(
     if invalid_rows:
         fieldsets = "\n".join(
             f"<fieldset><legend>Failed row {idx}: {_escape(invalid.error)}</legend>"
-            f"{_row_fields(f'r{idx}_', workout_date=selected_date, row=invalid.values, include_date=False)}</fieldset>"
+            f"{_row_fields(f'r{idx}_', workout_date=selected_date, row=invalid.values, include_date=False, recent_exercises=recent_exercises)}</fieldset>"
             for idx, invalid in enumerate(invalid_rows, start=1)
         )
     else:
         fieldsets = "\n".join(
             f"<fieldset><legend>Row {idx}</legend>"
-            f"{_row_fields(f'r{idx}_', workout_date=selected_date, include_date=False)}</fieldset>"
+            f"{_row_fields(f'r{idx}_', workout_date=selected_date, include_date=False, recent_exercises=recent_exercises)}</fieldset>"
             for idx in range(1, LOG_ROW_COUNT + 1)
         )
     notice = "".join(notices)
