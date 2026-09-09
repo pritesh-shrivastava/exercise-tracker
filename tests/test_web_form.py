@@ -233,11 +233,27 @@ def test_log_page_shows_db_only_recent_exercises(monkeypatch, tmp_path: Path) ->
 
     html = render_log_page()
 
-    assert '<optgroup label="Recent">' in html
+    # If all "recent" exercises are already part of the predefined list,
+    # we should not add a separate Recent optgroup.
+    assert '<optgroup label="Recent">' not in html
     assert 'value="Cable Chest Fly"' in html
     assert 'value="Bent Over Cable Row"' in html
-    assert 'value="Dumbbell Bench Press"' in html
-    assert 'Recent">' in html.split('value="Dumbbell Bench Press"', 1)[0]
+
+
+def test_predefined_exercises_include_cable_variants() -> None:
+    """Regression: ensure cable variants show up in dropdowns.
+
+    The log form exercise dropdown is driven by EXERCISE_GROUPS.
+    If we forget to add a canonical exercise here, it will only appear
+    via the "Recent" group (if ever), which makes body-part filtering
+    confusing and breaks expected discoverability.
+    """
+
+    from tracker.exercises import EXERCISE_GROUPS
+
+    all_exercises = {ex for group in EXERCISE_GROUPS.values() for ex in group}
+    assert "Cable Chest Fly" in all_exercises
+    assert "Bent Over Cable Row" in all_exercises
 
 
 def test_post_rows_use_shared_workout_date() -> None:

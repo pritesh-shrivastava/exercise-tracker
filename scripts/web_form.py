@@ -765,7 +765,9 @@ def render_log_page(
     today = now_ist().date().isoformat()
     token = new_form_token()
     selected_date = workout_date or today
-    recent_exercises = fetch_recent_exercise_names(DEFAULT_DB) if DEFAULT_DB.exists() else []
+    recent_exercises = fetch_recent_exercise_names(DEFAULT_DB)
+    if not DEFAULT_DB.exists():
+        recent_exercises = []
     notices = []
     if saved is not None:
         notices.append(
