@@ -10,34 +10,6 @@ from pathlib import Path
 from typing import Iterable
 
 BODY_PART_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core"]
-
-# Canonical training split (advisory): 4-day Upper/Lower hypertrophy rotation.
-# The coach suggestions below are still DB-driven (frequency-based), but when multiple
-# areas tie, we prefer the Upper/Lower pattern over the legacy PPL + shoulders/abs.
-TRAINING_AREAS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    # Prefer Upper before Lower when the DB-derived staleness metrics tie.
-    ("Upper", ("Chest", "Back", "Shoulders", "Biceps", "Triceps")),
-    ("Lower", ("Legs", "Core")),
-)
-
-# Canonical exercise templates (docs source of truth: README.md).
-# The coach prints these alongside the next-focus suggestion so you can act immediately.
-COACH_EXERCISE_TEMPLATES: dict[str, list[str]] = {
-    "Upper": [
-        "Barbell Bench Press — 4×6–10",
-        "Chest Supported Rows — 4×8–12",
-        "Lat Pull Down (wide grip) — 3×10–15",
-        "Vertical Chest Press Machine — 2×10–15",
-        "Lateral Raise — 2×12–20",
-    ],
-    "Lower": [
-        "Horizontal Leg Press — 4×10–15",
-        "Leg Extension — 3×12–20",
-        "Hamstring Curl — 3×10–15",
-        "Arms: Tricep Pushdown + Dumbbell Bicep Curl — 3 sets each",
-        "Core: Hanging Knee Raise / Bodyweight Abs Crunch — 3 sets",
-    ],
-}
 COACH_PROGRESSION_PROMPT_LIMIT = 6
 BODY_PART_EMOJI = {
     "Chest": "🩻",
@@ -311,79 +283,32 @@ def _next_focus(activity: Iterable[BodyPartActivity]) -> list[BodyPartActivity]:
     return never_trained[:2] + stale + never_trained[2:]
 
 
-def _activity_by_training_area(activity: Iterable[BodyPartActivity], as_of: date) -> list[TrainingAreaActivity]:
-    by_part = {row.part: row for row in activity}
-    areas: list[TrainingAreaActivity] = []
-    for area, parts in TRAINING_AREAS:
-        part_rows = tuple(
-            by_part.get(part, BodyPartActivity(part, 0, 0, None, None))
-            for part in parts
-        )
-        last_trained = max((row.last_trained or "" for row in part_rows), default="") or None
-        days_since: int | None = None
-        if last_trained:
-            try:
-                days_since = (as_of - datetime.strptime(last_trained, "%Y-%m-%d").date()).days
-            except ValueError:
-                days_since = None
-        areas.append(
-            TrainingAreaActivity(
-                area=area,
-                parts=parts,
-                sessions_14d=sum(row.sessions_14d for row in part_rows),
-                entries_14d=sum(row.entries_14d for row in part_rows),
-                last_trained=last_trained,
-                days_since=days_since,
-            )
-        )
-    return areas
+def _next_body_part(activity: list[BodyPartActivity]) -> BodyPartActivity:
+    """Pick a single body-part focus.
 
+    Ranking:
+    1) never-trained parts first (days_since is None)
+    2) staler last-trained (higher days_since)
+    3) fewer sessions_14d
+    4) fewer entries_14d
 
-def _next_training_area(activity: list[BodyPartActivity], as_of: date) -> TrainingAreaActivity:
-    """Pick the next training area by scoring *areas* directly.
-
-    Rank areas by:
-      1) untrained parts first (any None days_since)
-      2) min(days_since) across its parts (older is better)
-      3) max(days_since) across its parts (older is better)
-      4) fewer sessions_14d (encourage balance)
-      5) fewer entries_14d (encourage balance)
-
-    Ties are broken deterministically by the order of TRAINING_AREAS.
+    Ties are broken deterministically by BODY_PART_ORDER.
     """
+    if not activity:
+        return BodyPartActivity(part="", sessions_14d=0, entries_14d=0, last_trained=None, days_since=None)
 
-    areas = _activity_by_training_area(activity, as_of)
-    if not areas:
-        # Should never happen because TRAINING_AREAS is static, but keep a safe default.
-        return TrainingAreaActivity(area="", parts=(), sessions_14d=0, entries_14d=0, last_trained=None, days_since=None)
+    part_rank = {part: idx for idx, part in enumerate(BODY_PART_ORDER)}
 
-    by_part = {row.part: row for row in activity}
+    def _rank(row: BodyPartActivity) -> tuple:
+        never = 1 if row.days_since is None else 0
+        days = row.days_since if row.days_since is not None else 10_000
+        # Prefer never-trained, then staler, then lower recent volume.
+        return (never, days, -row.sessions_14d, -row.entries_14d, -part_rank.get(row.part, 10_000))
 
-    def _area_rank(a: TrainingAreaActivity) -> tuple:
-        part_rows = [by_part.get(part, BodyPartActivity(part, 0, 0, None, None)) for part in a.parts]
-
-        missing = sum(1 for row in part_rows if row.days_since is None)
-        if missing:
-            # If either area has never-trained parts, prioritize the one with MORE missing.
-            # Break ties by preferring Lower (legs are easy to accidentally under-train).
-            lower_bias = 1 if a.area == "Lower" else 0
-            return (10_000, 10_000, missing, lower_bias, 0, 0)
-
-        days = [row.days_since for row in part_rows if row.days_since is not None]
-        min_days = min(days) if days else 0
-        max_days = max(days) if days else 0
-
-        sessions = sum(row.sessions_14d for row in part_rows)
-        entries = sum(row.entries_14d for row in part_rows)
-        # Prefer the area whose MOST RECENT part is staler (higher min_days), then
-        # whose stalest part is also older (higher max_days), then lower volume.
-        # NOTE: We return a tuple for max(..., key=...).
-        return (min_days, max_days, 0, 0, -sessions, -entries)
-
-    return max(areas, key=_area_rank)
+    return max(activity, key=_rank)
 
 
-def _focus_status(row: BodyPartActivity | TrainingAreaActivity) -> str:
+def _focus_status(row: BodyPartActivity) -> str:
     if row.last_trained is None:
         return "no logged strength work yet"
     if row.days_since == 0:
@@ -404,7 +329,7 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
 
     today = as_of or date.today()
     activity = _activity_by_body_part(db_path, today)
-    focus = _next_training_area(activity, today)
+    focus = _next_body_part(activity)
     recent_sessions = sum(row.sessions_14d for row in activity)
     recent_entries = sum(row.entries_14d for row in activity)
 
@@ -416,15 +341,10 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
         "Suggested next focus:",
     ]
     status = _focus_status(focus)
-    lines.append(f"- {focus.area}: {status}; {focus.sessions_14d} sessions / {focus.entries_14d} entries in 14d")
-
-    template = COACH_EXERCISE_TEMPLATES.get(focus.area)
-    if template:
-        lines.extend(["", "Suggested exercises:"])
-        lines.extend(f"- {item}" for item in template)
+    lines.append(f"- {focus.part}: {status}; {focus.sessions_14d} sessions / {focus.entries_14d} entries in 14d")
 
     lines.extend(["", "Progression prompts:"])
-    progression = format_stale_pr_increment_candidates(db_path, as_of=today, body_parts=focus.parts)
+    progression = format_stale_pr_increment_candidates(db_path, as_of=today, body_parts=[focus.part] if focus.part else None)
     if progression:
         candidates = progression.splitlines()[2:2 + COACH_PROGRESSION_PROMPT_LIMIT]
         lines.extend(f"- {candidate}" for candidate in candidates)

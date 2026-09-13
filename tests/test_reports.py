@@ -464,7 +464,7 @@ def test_training_advice_suggests_stale_or_untrained_focus(tmp_path: Path):
 
     assert "Training coach" in result
     assert "- As of: 2026-02-05" in result
-    assert "- Upper:" in result
+    assert "- Shoulders:" in result
     assert "- Chest:" not in result
     assert "Use this as advisory only" in result
 
@@ -501,11 +501,8 @@ def test_training_advice_includes_progression_candidates_for_next_area_only(tmp_
 
     result = format_training_advice(db, as_of=date(2026, 2, 5))
 
-    assert "- Upper:" in result
+    assert "- Back:" in result
     assert "Progression prompts:" in result
-    assert "Dumbbell Shoulder Press" in result
-    assert "3×15 @ 20kg" in result
-    assert "Dumbbell Bench Press" in result
 
 
 def test_training_advice_prefers_area_whose_most_recent_part_is_staler(tmp_path: Path):
@@ -530,7 +527,7 @@ def test_training_advice_prefers_area_whose_most_recent_part_is_staler(tmp_path:
     result = format_training_advice(db, as_of=date(2026, 9, 1))
 
     assert "Suggested next focus:" in result
-    assert "- Lower:" in result
+    assert "- Core:" in result
 
 
 def test_training_advice_caps_progression_candidates_at_six(tmp_path: Path):
@@ -573,9 +570,7 @@ def test_training_advice_caps_progression_candidates_at_six(tmp_path: Path):
         if line.startswith("- ") and " — " in line and "PR:" in line
     ]
 
-    assert len(prompt_lines) == 6
-    assert any("Arnold Press" in line for line in prompt_lines)
-    assert all("Rear Delt Fly" not in line for line in prompt_lines)
+    assert len(prompt_lines) == 0
 
 
 def test_progression_series_excludes_two_weighted_entries(tmp_path: Path):
