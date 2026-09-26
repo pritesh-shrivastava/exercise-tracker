@@ -6,7 +6,12 @@ This is a small, private workout tracker backed by SQLite. The database is the s
 
 ## Data Model
 
-The `workouts` table has 15 columns:
+The database uses two tables:
+
+- `workouts` (per-set/session rows)
+- `exercise_meta` (canonical per-exercise metadata)
+
+The `workouts` table has 12 columns:
 
 | Column | Meaning |
 |--------|---------|
@@ -22,16 +27,22 @@ The `workouts` table has 15 columns:
 | `sets` | set count |
 | `reps` | reps per set |
 | `weight_kg` | total load in kg, not per-hand |
-| `equipment` | equipment category: `bodyweight`, `dumbbells`, `barbell`, `machine`, `cable`, `kettlebell`, `smith machine`, `band`, `other`, or blank only for legacy/custom edge cases |
+
+The `exercise_meta` table has 5 columns:
+
+| Column | Meaning |
+|--------|---------|
+| `exercise` | canonical exercise name (primary key) |
+| `movement_type` | `compound` or `isolation` |
+| `body_part` | canonical body-part tag used for grouping/filtering |
+| `equipment` | equipment category: `bodyweight`, `dumbbells`, `barbell`, `machine`, `cable`, `kettlebell`, `smith machine`, `band`, `other`, or blank only for custom/edge cases |
 | `per_hand` | boolean flag for dumbbell per-hand display |
-| `body_part` | saved body-part tag used for reports and coaching |
 
 Important invariants:
-- Store total load in `weight_kg`. For dumbbells, `per_hand=1` means display each-hand weight as `weight_kg / 2`.
-- `per_hand=1` is valid only with `equipment='dumbbells'`.
+- Store total load in `weight_kg`. For dumbbells, `exercise_meta.per_hand=1` means display each-hand weight as `weight_kg / 2`.
 - `details` is derived display text; reports use structured fields.
-- `body_part` is saved from the form; reports fall back to name-based classification when it is blank.
-- Predefined form exercises should have nonblank default equipment and body-part metadata in `tracker/exercises.py`.
+- `exercise_meta` is canonical for `body_part`/`equipment`/`per_hand`; reports fall back to name-based classification when body_part is blank.
+- Defaults are seeded from `tracker/exercises.py` into `exercise_meta` for new DBs.
 - `ensure_db()` in `tracker/core.py` creates and auto-migrates missing columns.
 
 ## Entry Rules
@@ -45,7 +56,7 @@ Form pages:
 - `PRs` renders the same PR report path as `scripts/summary.py --prs`, with an optional `?part=BodyPart` filter.
 - `Progression` renders SVG weight-history charts from structured weighted rows, with an optional `?part=BodyPart` filter.
 
-The `Log` page's predefined exercise dropdown uses `tracker/exercises.py` as the source for automatic equipment, body-part, and default per-hand selection. Custom exercises bypass those defaults and should be logged with explicit equipment and body part.
+The `Log` page's predefined exercise dropdown and defaults use `exercise_meta` as the canonical source. `tracker/exercises.py` is used only to seed `exercise_meta` for new databases.
 
 The form runs on `127.0.0.1:8765` and is exposed privately with Tailscale Serve. It has no public-internet authentication layer, so do not bind it to a public interface without an auth proxy. HTML responses are gzip-compressed for clients that advertise support.
 
@@ -90,9 +101,9 @@ All workout writes use the private web form. Local scripts may read the database
 - Avoid medical or injury diagnosis.
 
 Useful anomaly checks before/after direct maintenance:
-- Blank equipment: `SELECT id, workout_date, exercise FROM workouts WHERE equipment IS NULL OR equipment = '';`
-- Missing non-bodyweight load: `SELECT id, workout_date, exercise FROM workouts WHERE equipment != 'bodyweight' AND weight_kg IS NULL;`
-- Mixed exercise equipment: `SELECT exercise, GROUP_CONCAT(DISTINCT equipment), COUNT(*) FROM workouts GROUP BY exercise HAVING COUNT(DISTINCT equipment) > 1;`
+- Blank equipment: `SELECT exercise FROM exercise_meta WHERE equipment IS NULL OR equipment = '';`
+- Missing non-bodyweight load: `SELECT id, workout_date, exercise FROM workouts WHERE weight_kg IS NULL;` (interpret using `exercise_meta.equipment`)
+- Mixed exercise equipment: `SELECT exercise, GROUP_CONCAT(DISTINCT equipment), COUNT(*) FROM workouts GROUP BY exercise HAVING COUNT(DISTINCT equipment) > 1;` (should be empty if equipment is fully normalized)
 - Invalid body parts or variations should be treated as data cleanup, not as reporting display problems.
 
 ## Maintenance

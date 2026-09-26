@@ -36,8 +36,8 @@ def _insert_strength(
             """
             INSERT INTO workouts
             (logged_at, workout_date, workout_type, exercise, variation, details,
-             raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part)
-            VALUES (?, ?, 'strength', ?, ?, ?, ?, 'test', ?, ?, ?, ?, ?, ?)
+             raw_text, source, sets, reps, weight_kg, equipment, per_hand)
+            VALUES (?, ?, 'strength', ?, ?, ?, ?, 'test', ?, ?, ?, ?, ?)
             """,
             (
                 f"{workout_date}T00:00:00+05:30",
@@ -51,9 +51,19 @@ def _insert_strength(
                 weight_kg,
                 equipment,
                 int(per_hand),
-                body_part,
             ),
         )
+
+        # Store per-exercise metadata (body part) for this test DB.
+        if body_part:
+            conn.execute(
+                """
+                INSERT INTO exercise_meta (exercise, movement_type, body_part)
+                VALUES (?, 'compound', ?)
+                ON CONFLICT(exercise) DO UPDATE SET body_part = excluded.body_part
+                """,
+                (exercise, body_part),
+            )
         conn.commit()
 
 # --- Body part classification ---

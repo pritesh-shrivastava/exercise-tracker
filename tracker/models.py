@@ -61,8 +61,8 @@ def validate_record(rec: WorkoutRecord) -> None:
         raise ValueError(f"Invalid variation; Equipment leaked into variation: {rec}")
     if rec.variation not in VALID_VARIATIONS:
         raise ValueError(f"Invalid variation: {rec.variation!r}")
-    if rec.per_hand and rec.equipment != "dumbbells":
-        raise ValueError(f"per_hand set for non-dumbbell row: {rec}")
+    # per_hand is used for dumbbells, but equipment is now canonical metadata for the
+    # exercise (stored in exercise_meta), not necessarily attached to every row.
     if re.search(r"\bbody\s*(?:wt|weight)\b|\bbodyweight\b", rec.raw_text, re.I):
         if rec.equipment != "bodyweight":
             raise ValueError(f"Bodyweight text did not infer bodyweight: {rec}")

@@ -23,7 +23,6 @@ from scripts.web_form import (
     update_form_row,
 )
 from tracker.core import ensure_db
-from tracker.exercises import EXERCISE_DEFAULT_EQUIPMENT, EXERCISE_GROUPS
 
 
 def test_form_row_applies_default_equipment() -> None:
@@ -41,13 +40,14 @@ def test_form_row_applies_default_equipment() -> None:
 
 
 def test_all_predefined_exercises_have_default_equipment() -> None:
-    missing = [
-        exercise
-        for exercises in EXERCISE_GROUPS.values()
-        for exercise in exercises
-        if not EXERCISE_DEFAULT_EQUIPMENT.get(exercise)
-    ]
-
+    """exercise_meta is the canonical source of defaults."""
+    db_path = Path("data/workouts.sqlite")
+    ensure_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT exercise, COALESCE(equipment, '') FROM exercise_meta ORDER BY exercise"
+        ).fetchall()
+    missing = [exercise for exercise, equip in rows if not equip]
     assert missing == []
 
 
@@ -178,6 +178,7 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert '<optgroup label="Biceps" data-original-index=' in html
     assert '<optgroup label="Triceps" data-original-index=' in html
     assert '<optgroup label="Back" data-original-index=' in html
+    assert '<optgroup label="Other"' in html
     assert 'value="Barbell Romanian Deadlift" data-equipment="barbell"' in html
     assert 'value="Dumbbell Bench Press" data-equipment="dumbbells" data-body-part="Chest" data-per-hand="1"' in html
     assert 'value="Weighted Lunge" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="1"' in html
@@ -243,17 +244,12 @@ def test_log_page_shows_db_only_recent_exercises(monkeypatch, tmp_path: Path) ->
 def test_predefined_exercises_include_cable_variants() -> None:
     """Regression: ensure cable variants show up in dropdowns.
 
-    The log form exercise dropdown is driven by EXERCISE_GROUPS.
-    If we forget to add a canonical exercise here, it will only appear
-    via the "Recent" group (if ever), which makes body-part filtering
-    confusing and breaks expected discoverability.
+    The log form exercise dropdown is driven by exercise_meta.
     """
 
-    from tracker.exercises import EXERCISE_GROUPS
-
-    all_exercises = {ex for group in EXERCISE_GROUPS.values() for ex in group}
-    assert "Cable Chest Fly" in all_exercises
-    assert "Bent Over Cable Row" in all_exercises
+    html = render_log_page()
+    assert 'value="Cable Chest Fly"' in html
+    assert 'value="Bent Over Cable Row"' in html
 
 
 def test_post_rows_use_shared_workout_date() -> None:

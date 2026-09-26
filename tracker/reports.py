@@ -141,19 +141,23 @@ def _load_rows(db_path: Path) -> list[PRRow]:
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         columns = {row[1] for row in conn.execute("PRAGMA table_info(workouts)")}
-        body_part_select = (
-            "COALESCE(body_part, '') AS body_part"
-            if "body_part" in columns
-            else "'' AS body_part"
-        )
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "exercise_meta" in tables:
+            body_part_select = "COALESCE(m.body_part, '') AS body_part"
+            from_clause = "FROM workouts w LEFT JOIN exercise_meta m ON m.exercise = w.exercise"
+        else:
+            body_part_select = (
+                "COALESCE(body_part, '') AS body_part" if "body_part" in columns else "'' AS body_part"
+            )
+            from_clause = "FROM workouts w"
         rows = conn.execute(
             f"""
-            SELECT workout_date, exercise, COALESCE(variation, 'default') AS variation,
-                   details, raw_text, COALESCE(sets, 0) AS sets, COALESCE(reps, 0) AS reps,
-                   weight_kg, COALESCE(equipment, '') AS equipment,
-                   COALESCE(per_hand, 0) AS per_hand, {body_part_select}
-            FROM workouts WHERE workout_type = 'strength'
-            ORDER BY workout_date, id
+            SELECT w.workout_date, w.exercise, COALESCE(w.variation, 'default') AS variation,
+                   w.details, w.raw_text, COALESCE(w.sets, 0) AS sets, COALESCE(w.reps, 0) AS reps,
+                   w.weight_kg, COALESCE(m.equipment, '') AS equipment,
+                   COALESCE(m.per_hand, 0) AS per_hand, {body_part_select}
+            {from_clause} WHERE w.workout_type = 'strength'
+            ORDER BY w.workout_date, w.id
             """
         ).fetchall()
     return [PRRow(**dict(row)) for row in rows]
@@ -214,17 +218,21 @@ def _activity_by_body_part(db_path: Path, as_of: date) -> list[BodyPartActivity]
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         columns = {row[1] for row in conn.execute("PRAGMA table_info(workouts)")}
-        body_part_select = (
-            "COALESCE(body_part, '') AS body_part"
-            if "body_part" in columns
-            else "'' AS body_part"
-        )
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "exercise_meta" in tables:
+            body_part_select = "COALESCE(m.body_part, '') AS body_part"
+            from_clause = "FROM workouts w LEFT JOIN exercise_meta m ON m.exercise = w.exercise"
+        else:
+            body_part_select = (
+                "COALESCE(body_part, '') AS body_part" if "body_part" in columns else "'' AS body_part"
+            )
+            from_clause = "FROM workouts w"
         rows = conn.execute(
             f"""
-            SELECT workout_date, exercise, {body_part_select}
-            FROM workouts
-            WHERE workout_type = 'strength' AND workout_date <= ?
-            ORDER BY workout_date, id
+            SELECT w.workout_date, w.exercise, {body_part_select}
+            {from_clause}
+            WHERE w.workout_type = 'strength' AND w.workout_date <= ?
+            ORDER BY w.workout_date, w.id
             """,
             (as_of.isoformat(),),
         ).fetchall()

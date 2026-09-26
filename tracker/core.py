@@ -7,8 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from tracker.exercises import EXERCISE_DEFAULT_BODY_PART, EXERCISE_DEFAULT_MOVEMENT_TYPE
 from tracker.models import VALID_VARIATIONS
-from tracker.reports import BODY_PART_ORDER, body_part, row_body_part
+from tracker.reports import BODY_PART_ORDER, body_part
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -52,29 +53,83 @@ def ensure_db(db_path: Path) -> None:
              None),
             ("weight_kg", "ALTER TABLE workouts ADD COLUMN weight_kg REAL",
              None),
-            ("equipment", "ALTER TABLE workouts ADD COLUMN equipment TEXT NOT NULL DEFAULT ''",
-             None),
-            ("per_hand", "ALTER TABLE workouts ADD COLUMN per_hand INTEGER DEFAULT 0",
-             None),
-            ("body_part", "ALTER TABLE workouts ADD COLUMN body_part TEXT NOT NULL DEFAULT ''",
-             None),
         ]
         for col, add_sql, update_sql in migrations:
             if col not in columns:
                 conn.execute(add_sql)
                 if update_sql:
                     conn.execute(update_sql)
-        for row in conn.execute(
-            "SELECT id, exercise, body_part FROM workouts WHERE body_part IS NULL OR body_part = ''"
-        ):
-            conn.execute(
-                "UPDATE workouts SET body_part = ? WHERE id = ?",
-                (body_part(row[1]), row[0]),
-            )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(workout_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workouts_type ON workouts(workout_type)")
+
+        # Exercise metadata (movement type + canonical body part)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS exercise_meta (
+                exercise TEXT PRIMARY KEY,
+                movement_type TEXT NOT NULL,
+                body_part TEXT NOT NULL DEFAULT '',
+                equipment TEXT NOT NULL DEFAULT '',
+                per_hand INTEGER NOT NULL DEFAULT 0,
+                CHECK (movement_type IN ('compound', 'isolation')),
+                CHECK (body_part = '' OR body_part IN ('Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Core')),
+                CHECK (equipment IN ('', 'dumbbells', 'barbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'smith machine', 'band', 'other')),
+                CHECK (per_hand IN (0, 1))
+            )
+            """
+        )
+        # Migrate existing exercise_meta tables created by older versions.
+        meta_cols = {row[1] for row in conn.execute("PRAGMA table_info(exercise_meta)")}
+        if "equipment" not in meta_cols:
+            conn.execute("ALTER TABLE exercise_meta ADD COLUMN equipment TEXT NOT NULL DEFAULT ''")
+        if "per_hand" not in meta_cols:
+            conn.execute("ALTER TABLE exercise_meta ADD COLUMN per_hand INTEGER NOT NULL DEFAULT 0")
+        # Seed defaults idempotently.
+        # We don't delete anything (manual overrides or older exercises stay intact).
+        for exercise, movement_type in EXERCISE_DEFAULT_MOVEMENT_TYPE.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO exercise_meta (exercise, movement_type) VALUES (?, ?)",
+                (exercise, movement_type),
+            )
+        for exercise, part in EXERCISE_DEFAULT_BODY_PART.items():
+            if not part:
+                continue
+            conn.execute(
+                "UPDATE exercise_meta SET body_part = ? WHERE exercise = ? AND (body_part IS NULL OR body_part = '')",
+                (part, exercise),
+            )
+
+        # Seed equipment/per_hand from defaults.
+        from tracker.exercises import EXERCISE_DEFAULT_EQUIPMENT, EXERCISE_DEFAULT_PER_HAND
+        for exercise, equip in EXERCISE_DEFAULT_EQUIPMENT.items():
+            if not equip:
+                continue
+            conn.execute(
+                "UPDATE exercise_meta SET equipment = ? WHERE exercise = ? AND (equipment IS NULL OR equipment = '')",
+                (equip, exercise),
+            )
+        for exercise in EXERCISE_DEFAULT_PER_HAND:
+            conn.execute(
+                "UPDATE exercise_meta SET per_hand = 1 WHERE exercise = ?",
+                (exercise,),
+            )
+        # Classifier fallback for any remaining blanks.
+        for (exercise,) in conn.execute(
+            "SELECT DISTINCT exercise FROM workouts WHERE exercise NOT IN (SELECT exercise FROM exercise_meta)"
+        ):
+            conn.execute(
+                "INSERT OR IGNORE INTO exercise_meta (exercise, movement_type, body_part) VALUES (?, 'compound', ?)",
+                (exercise, body_part(exercise)),
+            )
+        conn.execute(
+            "UPDATE exercise_meta SET body_part = ? WHERE (body_part IS NULL OR body_part = '')",
+            ("",),
+        )
+
         valid_body_parts = "', '".join(BODY_PART_ORDER)
         valid_variations = "', '".join(sorted(VALID_VARIATIONS))
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_exercise_meta_exercise ON exercise_meta(exercise)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_exercise_meta_body_part ON exercise_meta(body_part)")
         conn.execute("DROP TRIGGER IF EXISTS workouts_validate_insert")
         conn.execute("DROP TRIGGER IF EXISTS workouts_validate_update")
         conn.execute(f"""
@@ -85,14 +140,6 @@ def ensure_db(db_path: Path) -> None:
             WHEN NEW.variation NOT IN ('{valid_variations}')
             THEN RAISE(ABORT, 'invalid variation')
           END;
-          SELECT CASE
-            WHEN NEW.per_hand = 1 AND NEW.equipment <> 'dumbbells'
-            THEN RAISE(ABORT, 'per_hand requires dumbbells')
-          END;
-          SELECT CASE
-            WHEN NEW.body_part <> '' AND NEW.body_part NOT IN ('{valid_body_parts}')
-            THEN RAISE(ABORT, 'invalid body_part')
-          END;
         END
         """)
         conn.execute(f"""
@@ -102,14 +149,6 @@ def ensure_db(db_path: Path) -> None:
           SELECT CASE
             WHEN NEW.variation NOT IN ('{valid_variations}')
             THEN RAISE(ABORT, 'invalid variation')
-          END;
-          SELECT CASE
-            WHEN NEW.per_hand = 1 AND NEW.equipment <> 'dumbbells'
-            THEN RAISE(ABORT, 'per_hand requires dumbbells')
-          END;
-          SELECT CASE
-            WHEN NEW.body_part <> '' AND NEW.body_part NOT IN ('{valid_body_parts}')
-            THEN RAISE(ABORT, 'invalid body_part')
           END;
         END
         """)

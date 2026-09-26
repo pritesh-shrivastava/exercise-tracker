@@ -29,10 +29,6 @@ from tracker.exercises import (  # noqa: E402
     BODY_FOCUS_CHOICES,
     BODY_PART_CHOICES,
     EQUIPMENT_CHOICES,
-    EXERCISE_DEFAULT_BODY_PART,
-    EXERCISE_DEFAULT_EQUIPMENT,
-    EXERCISE_DEFAULT_PER_HAND,
-    EXERCISE_GROUPS,
     LOG_ROW_COUNT,
     VARIATION_CHOICES,
 )
@@ -51,7 +47,6 @@ from tracker.reports import (  # noqa: E402
     ProgressionSeries,
     pr_display_rows,
     progression_series,
-    row_body_part,
 )
 
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
@@ -138,17 +133,44 @@ def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow
     variation = values.get(f"{prefix}variation", "default").strip() or "default"
     if variation == "default" and exercise == "Barbell Bench Press" and "incline" in exercise_raw.lower():
         variation = "incline"
-    equipment = values.get(f"{prefix}equipment", "").strip()
-    if not equipment:
-        equipment = EXERCISE_DEFAULT_EQUIPMENT.get(exercise, "")
+    selected_equipment = values.get(f"{prefix}equipment", "").strip()
     selected_body_part = values.get(f"{prefix}body_part", "").strip()
-    default_body_part = EXERCISE_DEFAULT_BODY_PART.get(exercise, "")
-    body_part = selected_body_part or default_body_part or row_body_part(exercise)
+
+    # Default equipment/body_part should come from exercise_meta (canonical store).
+    # Preserve user-submitted overrides when present.
+    default_equipment = ""
+    default_body_part = ""
+    ensure_db(DEFAULT_DB)
+    with sqlite3.connect(DEFAULT_DB) as conn:
+        row_meta = conn.execute(
+            """
+            SELECT COALESCE(equipment, ''), COALESCE(body_part, '')
+            FROM exercise_meta
+            WHERE exercise = ?
+            """,
+            (exercise,),
+        ).fetchone()
+    if row_meta is not None:
+        default_equipment = str(row_meta[0] or "")
+        default_body_part = str(row_meta[1] or "")
+
+    equipment = selected_equipment or default_equipment
+    # body_part is now canonical in exercise_meta, not per-row
+    body_part = selected_body_part or default_body_part
     per_hand_key = f"{prefix}per_hand"
     per_hand_defaulted_key = f"{prefix}per_hand_defaulted"
     per_hand = values.get(per_hand_key, "") == "1"
     if not per_hand and per_hand_key not in values and values.get(per_hand_defaulted_key, "") == "1":
-        per_hand = exercise in EXERCISE_DEFAULT_PER_HAND
+        # If the client marked this field as defaulted, infer per_hand from the
+        # canonical metadata store (exercise_meta). If metadata is missing, leave
+        # it unchecked and require explicit user input.
+        ensure_db(DEFAULT_DB)
+        with sqlite3.connect(DEFAULT_DB) as conn:
+            row_meta = conn.execute(
+                "SELECT COALESCE(per_hand, 0) FROM exercise_meta WHERE exercise = ?",
+                (exercise,),
+            ).fetchone()
+        per_hand = bool(row_meta and int(row_meta[0]))
     row = FormRow(
         workout_date=workout_date,
         exercise=exercise,
@@ -171,6 +193,8 @@ def _validate_form_row(row: FormRow) -> None:
         raise ValueError(f"invalid equipment: {row.equipment}")
     if row.body_part not in BODY_PART_VALUES:
         raise ValueError(f"invalid body part: {row.body_part}")
+    # equipment/per_hand are now stored canonically in exercise_meta.
+    # We still validate the row's values, but don't enforce per_hand->dumbbells here.
     rec = WorkoutRecord(
         "strength",
         row.exercise,
@@ -193,11 +217,15 @@ def _fetch_rows_by_ids(conn: sqlite3.Connection, row_ids: list[int]) -> list[sql
     placeholders = ",".join("?" for _ in row_ids)
     return list(conn.execute(
         f"""
-        SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
-               sets, reps, weight_kg, equipment, per_hand, body_part
-        FROM workouts
-        WHERE id IN ({placeholders})
-        ORDER BY id
+        SELECT w.id, w.logged_at, w.workout_date, w.workout_type, w.exercise, w.variation, w.details,
+               w.sets, w.reps, w.weight_kg,
+               COALESCE(m.equipment, '') AS equipment,
+               COALESCE(m.per_hand, 0) AS per_hand,
+               COALESCE(m.body_part, '') AS body_part
+        FROM workouts w
+        LEFT JOIN exercise_meta m ON m.exercise = w.exercise
+        WHERE w.id IN ({placeholders})
+        ORDER BY w.id
         """,
         row_ids,
     ))
@@ -216,8 +244,8 @@ def insert_form_rows(db_path: Path, rows: list[FormRow]) -> list[sqlite3.Row]:
                 """
                 INSERT INTO workouts
                 (logged_at, workout_date, workout_type, exercise, variation, details,
-                 raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part)
-                VALUES (?, ?, 'strength', ?, ?, ?, ?, 'form', ?, ?, ?, ?, ?, ?)
+                 raw_text, source, sets, reps, weight_kg, equipment, per_hand)
+                VALUES (?, ?, 'strength', ?, ?, ?, ?, 'form', ?, ?, ?, ?, ?)
                 """,
                 (
                     ts,
@@ -231,12 +259,22 @@ def insert_form_rows(db_path: Path, rows: list[FormRow]) -> list[sqlite3.Row]:
                     row.weight_kg,
                     row.equipment,
                     int(row.per_hand),
-                    row.body_part,
                 ),
             )
             if cur.lastrowid is None:
                 raise RuntimeError("SQLite insert did not return a row id")
             inserted_ids.append(cur.lastrowid)
+
+            # Keep exercise_meta.body_part in sync (canonical store).
+            if row.body_part:
+                conn.execute(
+                    """
+                    INSERT INTO exercise_meta (exercise, movement_type, body_part)
+                    VALUES (?, 'compound', ?)
+                    ON CONFLICT(exercise) DO UPDATE SET body_part = excluded.body_part
+                    """,
+                    (row.exercise, row.body_part),
+                )
         conn.commit()
         return _fetch_rows_by_ids(conn, inserted_ids)
 
@@ -251,7 +289,7 @@ def update_form_row(db_path: Path, row_id: int, row: FormRow) -> sqlite3.Row:
             """
             UPDATE workouts
             SET workout_date = ?, exercise = ?, variation = ?, details = ?,
-                raw_text = ?, sets = ?, reps = ?, weight_kg = ?, equipment = ?, per_hand = ?, body_part = ?
+                raw_text = ?, sets = ?, reps = ?, weight_kg = ?, equipment = ?, per_hand = ?
             WHERE id = ? AND workout_type = 'strength'
             """,
             (
@@ -265,10 +303,21 @@ def update_form_row(db_path: Path, row_id: int, row: FormRow) -> sqlite3.Row:
                 row.weight_kg,
                 row.equipment,
                 int(row.per_hand),
-                row.body_part,
                 row_id,
             ),
         )
+
+        # Keep exercise_meta.body_part in sync (canonical store).
+        if row.body_part:
+            conn.execute(
+                """
+                INSERT INTO exercise_meta (exercise, movement_type, body_part)
+                VALUES (?, 'compound', ?)
+                ON CONFLICT(exercise) DO UPDATE SET body_part = excluded.body_part
+                """,
+                (row.exercise, row.body_part),
+            )
+
         conn.commit()
         fetched = _fetch_rows_by_ids(conn, [row_id])
     if not fetched:
@@ -295,11 +344,15 @@ def fetch_today_rows(db_path: Path, workout_date: str | None = None) -> list[sql
         conn.row_factory = sqlite3.Row
         return list(conn.execute(
             """
-            SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
-                   sets, reps, weight_kg, equipment, per_hand, body_part
-            FROM workouts
-            WHERE workout_date = ? AND workout_type = 'strength'
-            ORDER BY id DESC
+            SELECT w.id, w.logged_at, w.workout_date, w.workout_type, w.exercise, w.variation, w.details,
+                   w.sets, w.reps, w.weight_kg,
+                   COALESCE(m.equipment, '') AS equipment,
+                   COALESCE(m.per_hand, 0) AS per_hand,
+                   COALESCE(m.body_part, '') AS body_part
+            FROM workouts w
+            LEFT JOIN exercise_meta m ON m.exercise = w.exercise
+            WHERE w.workout_date = ? AND w.workout_type = 'strength'
+            ORDER BY w.id DESC
             """,
             (day,),
         ))
@@ -311,11 +364,15 @@ def fetch_recent_rows(db_path: Path, limit: int = 10) -> list[sqlite3.Row]:
         conn.row_factory = sqlite3.Row
         return list(conn.execute(
             """
-            SELECT id, logged_at, workout_date, workout_type, exercise, variation, details,
-                   sets, reps, weight_kg, equipment, per_hand, body_part
-            FROM workouts
-            WHERE workout_type = 'strength'
-            ORDER BY id DESC
+            SELECT w.id, w.logged_at, w.workout_date, w.workout_type, w.exercise, w.variation, w.details,
+                   w.sets, w.reps, w.weight_kg,
+                   COALESCE(m.equipment, '') AS equipment,
+                   COALESCE(m.per_hand, 0) AS per_hand,
+                   COALESCE(m.body_part, '') AS body_part
+            FROM workouts w
+            LEFT JOIN exercise_meta m ON m.exercise = w.exercise
+            WHERE w.workout_type = 'strength'
+            ORDER BY w.id DESC
             LIMIT ?
             """,
             (limit,),
@@ -600,34 +657,72 @@ def _labelled_options(values: list[tuple[str, str]], selected: str) -> str:
 
 
 def _exercise_options(selected: str, *, recent_exercises: list[str] | None = None) -> str:
-    parts = []
+    """Exercise dropdown options grouped by canonical body_part from exercise_meta.
+
+    We intentionally do NOT render a separate "Recent" optgroup.
+    """
+
+    # Use the real DB for canonical exercise metadata. This keeps the dropdown
+    # in sync with exercise_meta rather than hardcoded EXERCISE_GROUPS.
+    ensure_db(DEFAULT_DB)
+    with sqlite3.connect(DEFAULT_DB) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = list(conn.execute(
+            """
+            SELECT exercise, movement_type,
+                   COALESCE(body_part, '') AS body_part,
+                   COALESCE(equipment, '') AS equipment,
+                   COALESCE(per_hand, 0) AS per_hand
+            FROM exercise_meta
+            ORDER BY exercise ASC
+            """
+        ))
+
+    meta: dict[str, sqlite3.Row] = {str(row["exercise"]): row for row in rows}
+
+    # Group by body_part in BODY_PART_ORDER, with a final 'Other' bucket
+    # for exercises missing metadata or missing body_part.
+    groups: dict[str, list[str]] = {part: [] for part in BODY_PART_ORDER}
+    groups["Other"] = []
+    for exercise, row in meta.items():
+        body_part = str(row["body_part"] or "")
+        if body_part in groups:
+            groups[body_part].append(exercise)
+        else:
+            groups["Other"].append(exercise)
+
+    # Sort within each group for stability.
+    for exercises in groups.values():
+        exercises.sort()
+
+    parts: list[str] = []
     seen: set[str] = set()
-    for idx, (group, exercises) in enumerate(EXERCISE_GROUPS.items()):
-        options = []
+    group_index = 0
+    for group in [*BODY_PART_ORDER, "Other"]:
+        exercises = groups.get(group, [])
+        if not exercises:
+            continue
+        options: list[str] = []
         for exercise in exercises:
             seen.add(exercise)
-            equipment = EXERCISE_DEFAULT_EQUIPMENT.get(exercise, "")
-            body_part = EXERCISE_DEFAULT_BODY_PART.get(exercise, "")
+            row = meta.get(exercise)
+            equipment = str(row["equipment"]) if row is not None else ""
+            body_part = str(row["body_part"]) if row is not None else ""
+            per_hand = "1" if row is not None and int(row["per_hand"]) else "0"
+            movement_type = str(row["movement_type"]) if row is not None else ""
             is_selected = " selected" if exercise == selected else ""
-            per_hand = "1" if exercise in EXERCISE_DEFAULT_PER_HAND else "0"
             options.append(
                 f'<option value="{_escape(exercise)}" data-equipment="{_escape(equipment)}"'
                 f' data-body-part="{_escape(body_part)}"'
-                f' data-per-hand="{per_hand}"{is_selected}>'
+                f' data-per-hand="{per_hand}"'
+                f' data-movement-type="{_escape(movement_type)}"{is_selected}>'
                 f"{_escape(exercise)}</option>"
             )
         parts.append(
-            f'<optgroup label="{_escape(group)}" data-original-index="{idx}">{"".join(options)}</optgroup>'
+            f'<optgroup label="{_escape(group)}" data-original-index="{group_index}">{"".join(options)}</optgroup>'
         )
-    recent_options = []
-    for exercise in recent_exercises or []:
-        if exercise in seen:
-            continue
-        seen.add(exercise)
-        is_selected = " selected" if exercise == selected else ""
-        recent_options.append(f'<option value="{_escape(exercise)}"{is_selected}>{_escape(exercise)}</option>')
-    if recent_options:
-        parts.insert(0, f'<optgroup label="Recent">{"".join(recent_options)}</optgroup>')
+        group_index += 1
+
     if selected and selected not in seen:
         parts.insert(0, f'<option value="{_escape(selected)}" selected>{_escape(selected)}</option>')
     return '<option value=""></option>' + "".join(parts)
@@ -649,11 +744,35 @@ def _row_fields(
     reps = values.get("reps", "") if row is not None else 12
     weight = values.get("weight_kg", "")
     custom_exercise = values.get("custom_exercise", "")
-    equipment = values.get("equipment", "") or EXERCISE_DEFAULT_EQUIPMENT.get(str(exercise), "")
-    body_part = values.get("body_part", "") or EXERCISE_DEFAULT_BODY_PART.get(str(exercise), "")
-    default_per_hand = row is None and str(exercise) in EXERCISE_DEFAULT_PER_HAND
+    # Server-side defaults should come from exercise_meta so the form behaves
+    # correctly even if JS applyExerciseDefaults doesn't run.
+    selected_equipment = str(values.get("equipment", "") or "")
+    selected_body_part = str(values.get("body_part", "") or "")
+
+    default_equipment = ""
+    default_body_part = ""
+    default_per_hand = False
+    if exercise:
+        ensure_db(DEFAULT_DB)
+        with sqlite3.connect(DEFAULT_DB) as conn:
+            row_meta = conn.execute(
+                """
+                SELECT COALESCE(equipment, ''), COALESCE(body_part, ''), COALESCE(per_hand, 0)
+                FROM exercise_meta
+                WHERE exercise = ?
+                """,
+                (str(exercise),),
+            ).fetchone()
+        if row_meta is not None:
+            default_equipment = str(row_meta[0] or "")
+            default_body_part = str(row_meta[1] or "")
+            default_per_hand = bool(int(row_meta[2] or 0))
+
+    equipment = selected_equipment or default_equipment
+    body_part = selected_body_part or default_body_part
+
     checked_value = values.get("per_hand", 0)
-    checked = " checked" if checked_value in (1, "1", True) or default_per_hand else ""
+    checked = " checked" if checked_value in (1, "1", True) else ""
     defaulted = str(values.get("per_hand_defaulted", "1" if default_per_hand else "0"))
     date_field = (
         f'<label>Date<input type="date" name="{prefix}workout_date" value="{_escape(date_value)}"></label>'
@@ -720,13 +839,14 @@ def fetch_recent_body_part_summary(db_path: Path, *, limit_dates: int = 10) -> l
                 LIMIT ?
             )
             SELECT w.workout_date,
-                   w.body_part,
+                   COALESCE(m.body_part, '') AS body_part,
                    COUNT(DISTINCT w.exercise) AS exercise_count
             FROM workouts w
+            LEFT JOIN exercise_meta m ON m.exercise = w.exercise
             JOIN recent_dates d ON d.workout_date = w.workout_date
             WHERE w.workout_type = 'strength'
-            GROUP BY w.workout_date, w.body_part
-            ORDER BY w.workout_date DESC, exercise_count DESC, w.body_part ASC
+            GROUP BY w.workout_date, COALESCE(m.body_part, '')
+            ORDER BY w.workout_date DESC, exercise_count DESC, body_part ASC
             """,
             (limit_dates,),
         ))

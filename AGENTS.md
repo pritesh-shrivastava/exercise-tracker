@@ -29,13 +29,14 @@ design.md         — data model, variation rules, logging behaviour
 
 ## Key conventions
 
-- **Weight stored as total** (not per-hand), with `per_hand` boolean flag
+- **Weight stored as total** (not per-hand). Per-hand display is derived from exercise metadata (`exercise_meta.per_hand`).
 - **DB path**: `data/workouts.sqlite` in repo root
-- **15 columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg, equipment, per_hand, body_part
-- **Auto-migration**: `ensure_db()` in `tracker/core.py` adds missing columns on startup
+- **workouts columns**: id, logged_at, workout_date, workout_type, exercise, variation, details, raw_text, source, sets, reps, weight_kg
+- **exercise_meta columns**: exercise, movement_type, body_part, equipment, per_hand
+- **Auto-migration**: `ensure_db()` in `tracker/core.py` creates/migrates tables on startup (including `exercise_meta`).
 - **Columns to hide**: `details`, `raw_text`, `id` when displaying
 - **Valid variations**: `default`, `flat`, `incline`, `decline`, `short grip`, `wide grip`, `reverse grip`
-- **Form defaults**: every predefined exercise in `tracker/exercises.py` should have nonblank default equipment and body-part metadata; selecting an exercise pre-fills those fields
+- **Form defaults**: selecting an exercise pre-fills equipment/body-part/per-hand from `exercise_meta` (canonical). Defaults are seeded from `tracker/exercises.py` for new DBs.
 - **PR/progression filters**: `/prs?part=...` and `/progression?part=...` use the same `BODY_PART_ORDER` body-part dropdown
 - **Progression charts**: web-only `/progression`, grouped by exercise + variation, minimum 3 weighted entries, ordered by `BODY_PART_ORDER`; chart uses full history, table shows latest 3 entries
 - **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth

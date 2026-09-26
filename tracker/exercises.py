@@ -85,6 +85,76 @@ EXERCISE_GROUPS = {
     ],
 }
 
+EXERCISE_DEFAULT_MOVEMENT_TYPE = {
+    # Keep this intentionally small and conservative; unknown exercises can be left unset.
+    # movement_type must be one of: 'compound', 'isolation'.
+    "Barbell Bench Press": "compound",
+    "Dumbbell Bench Press": "compound",
+    "Dumbbell Pec Fly": "isolation",
+    "Cable Chest Fly": "isolation",
+    "Pec Fly": "isolation",
+    "Vertical Chest Press Machine": "compound",
+    "Push Up": "compound",
+
+    "Barbell Squat": "compound",
+    "Bodyweight Squat": "compound",
+    "Goblet Squat": "compound",
+    "45 Degree Leg Press": "compound",
+    "Horizontal Leg Press": "compound",
+    "Leg Extension": "isolation",
+    "Hamstring Curl": "isolation",
+    "Barbell Romanian Deadlift": "compound",
+    "Dumbbell Romanian Deadlift": "compound",
+    "Hip Thrust": "compound",
+    "Calf Raise": "isolation",
+    "Bodyweight Calf Raise": "isolation",
+    "Kettlebell Swing": "compound",
+    "Weighted Lunge": "compound",
+
+    "Lat Pull Down": "compound",
+    "Pull Up": "compound",
+    "Assisted Pull Up": "compound",
+    "Chin Up": "compound",
+    "Seated Cable Row": "compound",
+    "Chest Supported Rows": "compound",
+    "Single Arm Dumbbell Row": "compound",
+    "Dumbbell Rows": "compound",
+    "45 Degree T Bar Row": "compound",
+    "Bent Over Cable Row": "compound",
+    "Straight Arm Cable Pulldown": "isolation",
+    "Back Extension": "compound",
+
+    "Dumbbell Shoulder Press": "compound",
+    "Dumbbell Arnold Press": "compound",
+    "Lateral Raise": "isolation",
+    "Front Raise": "isolation",
+    "Rear Delt Fly": "isolation",
+    "Face Pull": "isolation",
+    "Cable Rope Upright Row": "compound",
+    "Dumbbell Shrugs": "isolation",
+
+    "Dumbbell Bicep Curl": "isolation",
+    "Dumbbell Hammer Curl": "isolation",
+    "Small Barbell Curl": "isolation",
+    "Bicep Curl on Cable": "isolation",
+    "Bicep Preacher Curl": "isolation",
+    "Hammer Curl on Cable": "isolation",
+    "Reverse Curl on Cable": "isolation",
+
+    "Tricep Pushdown": "isolation",
+    "Cable Overhead Tricep Extension": "isolation",
+    "Dumbbell Overhead Tricep Extension": "isolation",
+    "Assisted Dips": "compound",
+
+    "Bodyweight Abs Crunch": "isolation",
+    "Seated Abs Crunch Machine": "isolation",
+    "Situps": "isolation",
+    "Decline Bench Situp": "isolation",
+    "Leg Raise": "isolation",
+    "Hanging Knee Raise": "isolation",
+    "Plank Oblique Crunch": "isolation",
+}
+
 EXERCISE_DEFAULT_EQUIPMENT = {
     "45 Degree Leg Press": "machine",
     "45 Degree T Bar Row": "machine",
@@ -128,15 +198,17 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Hammer Curl on Cable": "cable",
     "Hanging Knee Raise": "bodyweight",
     "Hip Abduction Machine": "machine",
-    "Hip Thrust": "other",
+    "Hip Thrust": "barbell",
     "Horizontal Leg Press": "machine",
     "Kettlebell Swing": "kettlebell",
+    "Kettleball Swing": "kettlebell",
     "Lat Pull Down": "machine",
     "Lateral Raise": "dumbbells",
     "Leg Extension": "machine",
     "Leg Raise": "bodyweight",
     "Pec Fly": "machine",
     "Plank Oblique Crunch": "bodyweight",
+    "Preacher Curl": "machine",
     "Pull Up": "bodyweight",
     "Push Up": "bodyweight",
     "Rear Delt Fly": "machine",
@@ -151,6 +223,9 @@ EXERCISE_DEFAULT_EQUIPMENT = {
     "Vertical Chest Press Machine": "machine",
     "Weighted Lunge": "dumbbells",
 }
+
+# NOTE: equipment/per_hand are now canonical in exercise_meta.
+# We keep these defaults for form prefill and initial seeding.
 EXERCISE_DEFAULT_BODY_PART = {
     exercise: group
     for group, exercises in EXERCISE_GROUPS.items()
