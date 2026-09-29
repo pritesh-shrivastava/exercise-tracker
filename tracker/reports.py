@@ -35,6 +35,7 @@ class PRRow:
     equipment: str = ""
     per_hand: bool = False
     body_part: str = ""
+    movement_type: str = ""
 
 
 @dataclass(frozen=True)
@@ -155,7 +156,8 @@ def _load_rows(db_path: Path) -> list[PRRow]:
             SELECT w.workout_date, w.exercise, COALESCE(w.variation, 'default') AS variation,
                    w.details, w.raw_text, COALESCE(w.sets, 0) AS sets, COALESCE(w.reps, 0) AS reps,
                    w.weight_kg, COALESCE(m.equipment, '') AS equipment,
-                   COALESCE(m.per_hand, 0) AS per_hand, {body_part_select}
+                   COALESCE(m.per_hand, 0) AS per_hand, {body_part_select},
+                   COALESCE(m.movement_type, '') AS movement_type
             {from_clause} WHERE w.workout_type = 'strength'
             ORDER BY w.workout_date, w.id
             """
@@ -352,7 +354,11 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
     lines.append(f"- {focus.part}: {status}; {focus.sessions_14d} sessions / {focus.entries_14d} entries in 14d")
 
     lines.extend(["", "Progression prompts:"])
-    progression = format_stale_pr_increment_candidates(db_path, as_of=today, body_parts=[focus.part] if focus.part else None)
+    progression = format_stale_pr_increment_candidates(
+        db_path,
+        as_of=today,
+        body_parts=[focus.part] if focus.part else None,
+    )
     if progression:
         candidates = progression.splitlines()[2:2 + COACH_PROGRESSION_PROMPT_LIMIT]
         lines.extend(f"- {candidate}" for candidate in candidates)
@@ -369,11 +375,30 @@ def format_training_advice(db_path: Path, as_of: date | None = None) -> str:
     return "\n".join(lines)
 
 
+def _target_reps_for_movement(movement_type: str) -> int:
+    """Progressive overload rep target by movement type.
+
+    - isolation: 15 reps
+    - compound: 12 reps
+
+    Unknown/blank values fall back to 15 to avoid aggressive progression prompts.
+    """
+
+    if movement_type == "compound":
+        return 12
+    return 15
+
+
+def _movement_target_label(movement_type: str) -> str:
+    target = _target_reps_for_movement(movement_type)
+    kind = movement_type if movement_type else "unknown"
+    return f"{kind}  {target} reps"
+
+
 def format_stale_pr_increment_candidates(
     db_path: Path,
     as_of: date | None = None,
     stale_days: int = 30,
-    min_reps: int = 15,
     rep_progression_below: int = 12,
     body_parts: Iterable[str] | None = None,
 ) -> str:
@@ -396,7 +421,14 @@ def format_stale_pr_increment_candidates(
         except ValueError:
             continue
         if (today - pr_date).days > stale_days:
-            if row.reps >= min_reps:
+            # Progressive overload targets:
+            # - isolation: 15 reps (increase weight once you hit this)
+            # - compound: 12 reps (increase weight once you hit this)
+            #
+            # We use the stored movement_type when available; otherwise fall back
+            # to the safe default in _target_reps_for_movement().
+            target_reps = _target_reps_for_movement(row.movement_type)
+            if row.reps >= target_reps:
                 candidates.append(("weight", row))
             elif row.reps < rep_progression_below:
                 candidates.append(("reps", row))
@@ -416,7 +448,8 @@ def format_stale_pr_increment_candidates(
     lines = [
         (
             f"Stale PRs ready for progression (>{stale_days}d, "
-            f"{min_reps}+ reps for weight or <{rep_progression_below} reps for reps)"
+            f"compound: 12+ reps / isolation: 15+ reps for weight; "
+            f"<{rep_progression_below} reps for reps)"
         ),
         "",
     ]
@@ -426,8 +459,10 @@ def format_stale_pr_increment_candidates(
         variation = f" [{row.variation}]" if row.variation not in ("", "default") else ""
         pr_date_label = datetime.strptime(row.workout_date, "%Y-%m-%d").strftime("%d %b %Y")
         prompt = "add weight" if progression_type == "weight" else "add reps"
+        target_label = _movement_target_label(row.movement_type)
         lines.append(
-            f"{emoji}  {row.exercise}{variation} — {_fmt_performance(row)} — {prompt} — PR: {pr_date_label}"
+            f"{emoji}  {row.exercise}{variation} — {_fmt_performance(row)} — {prompt} — {target_label}"
+            f" — PR: {pr_date_label}"
         )
     return "\n".join(lines)
 

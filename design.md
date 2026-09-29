@@ -84,7 +84,13 @@ Report rules:
 - Hide `default` variation in display output.
 - PR scoring is highest weight, then reps, then sets, then earliest date.
 - Body-part display uses saved `body_part` tags first, then classifier fallback in `tracker/reports.py`.
-- Coaching is advisory only: body-part recency, recent coverage, and stale high-rep weighted PRs that may be ready for a small weight increase.
+- Coaching is advisory only: body-part recency, recent coverage, and stale weighted PRs that may be ready for a small weight increase.
+
+Progressive overload (rep targets for "add weight"):
+- **Isolation exercises:** 15 reps
+- **Compound exercises:** 12 reps
+
+These targets are driven by `exercise_meta.movement_type` (seeded from `tracker/exercises.py`).
 - Progression charts group by canonical exercise plus variation, ignore rows without `weight_kg`, require at least 3 weighted entries, and order charts by `BODY_PART_ORDER`.
 - Progression SVGs plot full weighted history; the compact table under each chart shows only the latest 3 entries.
 - The PR and progression pages both use `part` query-parameter filtering with values from `BODY_PART_ORDER`.

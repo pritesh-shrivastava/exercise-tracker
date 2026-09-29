@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from tracker.exercises import EXERCISE_DEFAULT_BODY_PART, EXERCISE_DEFAULT_MOVEMENT_TYPE
 from tracker.models import VALID_VARIATIONS
-from tracker.reports import BODY_PART_ORDER, body_part
+from tracker.reports import body_part, row_body_part
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -72,8 +72,15 @@ def ensure_db(db_path: Path) -> None:
                 equipment TEXT NOT NULL DEFAULT '',
                 per_hand INTEGER NOT NULL DEFAULT 0,
                 CHECK (movement_type IN ('compound', 'isolation')),
-                CHECK (body_part = '' OR body_part IN ('Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Core')),
-                CHECK (equipment IN ('', 'dumbbells', 'barbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'smith machine', 'band', 'other')),
+                CHECK (
+                    body_part = '' OR body_part IN ('Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Core')
+                ),
+                CHECK (
+                    equipment IN (
+                        '', 'dumbbells', 'barbell', 'machine', 'cable', 'bodyweight', 'kettlebell',
+                        'smith machine', 'band', 'other'
+                    )
+                ),
                 CHECK (per_hand IN (0, 1))
             )
             """
@@ -126,7 +133,6 @@ def ensure_db(db_path: Path) -> None:
             ("",),
         )
 
-        valid_body_parts = "', '".join(BODY_PART_ORDER)
         valid_variations = "', '".join(sorted(VALID_VARIATIONS))
         conn.execute("CREATE INDEX IF NOT EXISTS idx_exercise_meta_exercise ON exercise_meta(exercise)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_exercise_meta_body_part ON exercise_meta(body_part)")

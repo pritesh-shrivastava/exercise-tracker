@@ -26,7 +26,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from tracker.core import ensure_db, now_ist  # noqa: E402
 from tracker.exercises import (  # noqa: E402
-    BODY_FOCUS_CHOICES,
     BODY_PART_CHOICES,
     EQUIPMENT_CHOICES,
     LOG_ROW_COUNT,
@@ -684,8 +683,8 @@ def _exercise_options(selected: str, *, recent_exercises: list[str] | None = Non
     # for exercises missing metadata or missing body_part.
     groups: dict[str, list[str]] = {part: [] for part in BODY_PART_ORDER}
     groups["Other"] = []
-    for exercise, row in meta.items():
-        body_part = str(row["body_part"] or "")
+    for exercise, meta_row in meta.items():
+        body_part = str(meta_row["body_part"] or "")
         if body_part in groups:
             groups[body_part].append(exercise)
         else:
@@ -705,11 +704,11 @@ def _exercise_options(selected: str, *, recent_exercises: list[str] | None = Non
         options: list[str] = []
         for exercise in exercises:
             seen.add(exercise)
-            row = meta.get(exercise)
-            equipment = str(row["equipment"]) if row is not None else ""
-            body_part = str(row["body_part"]) if row is not None else ""
-            per_hand = "1" if row is not None and int(row["per_hand"]) else "0"
-            movement_type = str(row["movement_type"]) if row is not None else ""
+            row: sqlite3.Row | None = meta.get(exercise)
+            equipment = str(row["equipment"]) if row else ""
+            body_part = str(row["body_part"]) if row else ""
+            per_hand = "1" if row and int(row["per_hand"]) else "0"
+            movement_type = str(row["movement_type"]) if row else ""
             is_selected = " selected" if exercise == selected else ""
             options.append(
                 f'<option value="{_escape(exercise)}" data-equipment="{_escape(equipment)}"'
@@ -783,7 +782,9 @@ def _row_fields(
 <div class="grid">
   {date_field}
   <label class="exercise">Exercise
-    <select name="{prefix}exercise" data-exercise-select>{_exercise_options(str(exercise), recent_exercises=recent_exercises)}</select>
+    <select name="{prefix}exercise" data-exercise-select>
+      {_exercise_options(str(exercise), recent_exercises=recent_exercises)}
+    </select>
   </label>
   <label class="custom-exercise">Custom exercise
     <input name="{prefix}custom_exercise" value="{_escape(custom_exercise)}" placeholder="Type only if not listed">
@@ -898,14 +899,31 @@ def render_log_page(
         notices.append(f'<div class="notice error">{_escape(error)}</div>')
     if invalid_rows:
         fieldsets = "\n".join(
-            f"<fieldset><legend>Failed row {idx}: {_escape(invalid.error)}</legend>"
-            f"{_row_fields(f'r{idx}_', workout_date=selected_date, row=invalid.values, include_date=False, recent_exercises=recent_exercises)}</fieldset>"
+            (
+                f"<fieldset><legend>Failed row {idx}: {_escape(invalid.error)}</legend>"
+                + _row_fields(
+                    f"r{idx}_",
+                    workout_date=selected_date,
+                    row=invalid.values,
+                    include_date=False,
+                    recent_exercises=recent_exercises,
+                )
+                + "</fieldset>"
+            )
             for idx, invalid in enumerate(invalid_rows, start=1)
         )
     else:
         fieldsets = "\n".join(
-            f"<fieldset><legend>Row {idx}</legend>"
-            f"{_row_fields(f'r{idx}_', workout_date=selected_date, include_date=False, recent_exercises=recent_exercises)}</fieldset>"
+            (
+                f"<fieldset><legend>Row {idx}</legend>"
+                + _row_fields(
+                    f"r{idx}_",
+                    workout_date=selected_date,
+                    include_date=False,
+                    recent_exercises=recent_exercises,
+                )
+                + "</fieldset>"
+            )
             for idx in range(1, LOG_ROW_COUNT + 1)
         )
     notice = "".join(notices)

@@ -170,9 +170,15 @@ Use local commands against the SQLite database:
 ```bash
 uv run python scripts/summary.py          # recent activity
 uv run python scripts/summary.py --prs    # personal records
-uv run python scripts/summary.py --coach  # advisory training prompts
+uv run python scripts/summary.py --coach  # advisory coaching prompts
 sqlite3 data/workouts.sqlite              # raw DB inspection
 ```
+
+### Progressive overload (rep targets)
+
+- **Isolation exercises:** 15 reps
+- **Compound exercises:** 12 reps
+
 
 For raw display, hide `id`, `raw_text`, and `details` unless you are deliberately auditing internals. Hide `variation` when it is `default`.
 

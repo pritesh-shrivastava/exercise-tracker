@@ -325,7 +325,7 @@ def test_format_prs_splits_variations_even_when_same_weight(tmp_path: Path):
 
 
 
-def test_stale_pr_increment_candidates_include_old_weighted_15_rep_pr(tmp_path: Path):
+def test_stale_pr_increment_candidates_include_old_weighted_15_rep_pr_for_isolation(tmp_path: Path):
     db = tmp_path / "workouts.sqlite"
     _insert_strength(
         db,
@@ -343,7 +343,28 @@ def test_stale_pr_increment_candidates_include_old_weighted_15_rep_pr(tmp_path: 
     assert "Calf Raise" in result
     assert "3×15 @ 20kg" in result
     assert "add weight" in result
+    assert "isolation" in result
     assert "PR: 01 Jan 2026" in result
+
+
+def test_stale_pr_increment_candidates_include_old_weighted_12_rep_pr_for_compound(tmp_path: Path):
+    db = tmp_path / "workouts.sqlite"
+    _insert_strength(
+        db,
+        workout_date="2026-01-01",
+        exercise="Lat Pull Down",
+        details="3x12 @ 35kg",
+        sets=3,
+        reps=12,
+        weight_kg=35.0,
+    )
+
+    result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
+
+    assert "Lat Pull Down" in result
+    assert "3×12 @ 35kg" in result
+    assert "add weight" in result
+    assert "compound" in result
 
 
 def test_stale_pr_increment_candidates_exclude_recent_pr(tmp_path: Path):
@@ -436,6 +457,7 @@ def test_stale_pr_increment_candidates_preserve_per_hand_display(tmp_path: Path)
 
     assert "Dumbbell Bench Press [incline]" in result
     assert "3×15 @ 15kg (7.5ea.)" in result
+    assert "compound" in result
 
 
 def test_training_advice_empty_db(tmp_path: Path):
@@ -520,19 +542,83 @@ def test_training_advice_prefers_area_whose_most_recent_part_is_staler(tmp_path:
     db = tmp_path / "workouts.sqlite"
 
     # Chest & Triceps: last trained 1 day ago
-    _insert_strength(db, workout_date="2026-08-31", exercise="Dumbbell Bench Press", details="3x10 @ 30kg", sets=3, reps=10, weight_kg=30.0, body_part="Chest")
-    _insert_strength(db, workout_date="2026-08-31", exercise="Tricep Pushdown", details="3x12 @ 25kg", sets=3, reps=12, weight_kg=25.0, body_part="Triceps")
+    _insert_strength(
+        db,
+        workout_date="2026-08-31",
+        exercise="Dumbbell Bench Press",
+        details="3x10 @ 30kg",
+        sets=3,
+        reps=10,
+        weight_kg=30.0,
+        body_part="Chest",
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-08-31",
+        exercise="Tricep Pushdown",
+        details="3x12 @ 25kg",
+        sets=3,
+        reps=12,
+        weight_kg=25.0,
+        body_part="Triceps",
+    )
 
     # Shoulders & Abs: shoulders 3 days ago, core 10 days ago
-    _insert_strength(db, workout_date="2026-08-29", exercise="Dumbbell Shoulder Press", details="3x12 @ 20kg", sets=3, reps=12, weight_kg=20.0, body_part="Shoulders")
-    _insert_strength(db, workout_date="2026-08-22", exercise="Abs Crunch", details="3x15", sets=3, reps=15, weight_kg=None, equipment="bodyweight", body_part="Core")
+    _insert_strength(
+        db,
+        workout_date="2026-08-29",
+        exercise="Dumbbell Shoulder Press",
+        details="3x12 @ 20kg",
+        sets=3,
+        reps=12,
+        weight_kg=20.0,
+        body_part="Shoulders",
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-08-22",
+        exercise="Abs Crunch",
+        details="3x15",
+        sets=3,
+        reps=15,
+        weight_kg=None,
+        equipment="bodyweight",
+        body_part="Core",
+    )
 
     # Back & Biceps: both 8 days ago
-    _insert_strength(db, workout_date="2026-08-24", exercise="Lat Pull Down", details="3x12 @ 35kg", sets=3, reps=12, weight_kg=35.0, body_part="Back")
-    _insert_strength(db, workout_date="2026-08-24", exercise="Dumbbell Bicep Curl", details="3x12 @ 15kg", sets=3, reps=12, weight_kg=15.0, body_part="Biceps")
+    _insert_strength(
+        db,
+        workout_date="2026-08-24",
+        exercise="Lat Pull Down",
+        details="3x12 @ 35kg",
+        sets=3,
+        reps=12,
+        weight_kg=35.0,
+        body_part="Back",
+    )
+    _insert_strength(
+        db,
+        workout_date="2026-08-24",
+        exercise="Dumbbell Bicep Curl",
+        details="3x12 @ 15kg",
+        sets=3,
+        reps=12,
+        weight_kg=15.0,
+        body_part="Biceps",
+    )
 
     # Legs: 6 days ago
-    _insert_strength(db, workout_date="2026-08-26", exercise="Calf Raise", details="3x12 @ 25kg", sets=3, reps=12, weight_kg=25.0, body_part="Legs")
+    _insert_strength(
+        db,
+        workout_date="2026-08-26",
+        exercise="Calf Raise",
+        details="3x12 @ 25kg",
+        sets=3,
+        reps=12,
+        weight_kg=25.0,
+        body_part="Legs",
+    )
 
     result = format_training_advice(db, as_of=date(2026, 9, 1))
 
