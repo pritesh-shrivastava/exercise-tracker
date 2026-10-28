@@ -35,7 +35,7 @@ cd /home/azureuser/exercise-tracker
 uv run python scripts/summary.py
 uv run python scripts/summary.py --prs   # personal records — compact, one line per exercise
 uv run python scripts/summary.py --coach # advisory prompts from past logged data
-uv run python scripts/web_form.py         # mobile web form at http://127.0.0.1:8765/log
+uv run python -m tracker.web_form         # mobile web form at http://127.0.0.1:8765/log
 ```
 
 ## Mobile web workflow
@@ -67,7 +67,7 @@ curl http://127.0.0.1:8765/log
 If `tailscale` is not installed or not logged in, Tailscale Serve cannot expose the form. Install/configure Tailscale first, or run the form for local-only use:
 
 ```bash
-uv run python scripts/web_form.py --host 127.0.0.1 --port 8765
+uv run python -m tracker.web_form --host 127.0.0.1 --port 8765
 ```
 
 Do not bind this app to a public VPS interface unless you add real authentication in front of it. The stdlib web form intentionally has no public-internet auth layer; Tailscale is the access control boundary.

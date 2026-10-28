@@ -4,7 +4,7 @@ import gzip
 import sqlite3
 from pathlib import Path
 
-from scripts.web_form import (
+from tracker.web_form import (
     FormRow,
     _html_response_bytes,
     _parse_form_submission,
@@ -278,9 +278,9 @@ def test_fetch_recent_exercise_names_returns_db_only_exercises_in_recency_order(
 def test_log_page_shows_db_only_recent_exercises(monkeypatch, tmp_path: Path) -> None:
     db = tmp_path / "workouts.sqlite"
     db.touch()
-    monkeypatch.setattr("scripts.web_form.DEFAULT_DB", db)
+    monkeypatch.setattr("tracker.web_form.DEFAULT_DB", db)
     monkeypatch.setattr(
-        "scripts.web_form.fetch_recent_exercise_names",
+        "tracker.web_form.fetch_recent_exercise_names",
         lambda db_path, limit=20: ["Cable Chest Fly", "Bent Over Cable Row", "Dumbbell Bench Press"],
     )
 

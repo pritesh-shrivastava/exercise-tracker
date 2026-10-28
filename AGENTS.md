@@ -9,7 +9,7 @@ uv run python scripts/summary.py                           # recent activity
 uv run python scripts/summary.py --prs                     # personal records (compact, one line per exercise)
 # (use --prs for any weekly PR summary automation; no separate weekly_pr_summary script)
 uv run python scripts/summary.py --coach                   # DB-backed advisory coaching prompts
-uv run python scripts/web_form.py --host 127.0.0.1 --port 8765  # local form; production uses systemd + Tailscale Serve
+uv run python -m tracker.web_form --host 127.0.0.1 --port 8765  # local form; production uses systemd + Tailscale Serve
 uv run pytest                                         # run tests
 uv run ruff check .                                   # lint
 uv run mypy tracker/ scripts/summary.py scripts/web_form.py  # type check
@@ -39,7 +39,7 @@ design.md         — data model, variation rules, logging behaviour
 - **Form defaults**: selecting an exercise pre-fills equipment/body-part/per-hand from `exercise_meta` (canonical). Defaults are seeded from `tracker/exercises.py` for new DBs.
 - **PR/progression filters**: `/prs?part=...` and `/progression?part=...` use the same `BODY_PART_ORDER` body-part dropdown
 - **Progression charts**: web-only `/progression`, grouped by exercise + variation, minimum 3 weighted entries, ordered by `BODY_PART_ORDER`; chart uses full history, table shows latest 3 entries
-- **Network access**: serve `scripts/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
+- **Network access**: serve `tracker/web_form.py` on localhost; production exposes it tailnet-only with Tailscale Serve. Do not expose it publicly without auth
 - **Web form port**: always use/restart the canonical `127.0.0.1:8765` service. If the port is busy, restart the existing service/process on `8765`; do not start a second form server on a different port.
 
 ## Workflow routing

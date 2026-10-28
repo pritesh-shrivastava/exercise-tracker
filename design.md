@@ -47,7 +47,7 @@ Important invariants:
 
 ## Entry Rules
 
-Workout logging happens only through `scripts/web_form.py`.
+Workout logging happens only through `tracker/web_form.py`.
 
 Form pages:
 - `Log` writes one structured strength row per submitted row.
