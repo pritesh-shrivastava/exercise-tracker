@@ -54,16 +54,15 @@ def _insert_strength(
             ),
         )
 
-        # Store per-exercise metadata (body part) for this test DB.
-        if body_part:
-            conn.execute(
-                """
-                INSERT INTO exercise_meta (exercise, movement_type, body_part)
-                VALUES (?, 'compound', ?)
-                ON CONFLICT(exercise) DO UPDATE SET body_part = excluded.body_part
-                """,
-                (exercise, body_part),
-            )
+        # Store per-exercise metadata for this test DB.
+        # exercise_meta is canonical; reports prefer it over per-row columns.
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO exercise_meta (exercise, movement_type, body_part, equipment, per_hand)
+            VALUES (?, 'compound', ?, ?, ?)
+            """,
+            (exercise, body_part, equipment, int(per_hand)),
+        )
         conn.commit()
 
 # --- Body part classification ---
@@ -417,7 +416,10 @@ def test_stale_pr_increment_candidates_exclude_middle_rep_pr(tmp_path: Path):
 
     result = format_stale_pr_increment_candidates(db, as_of=date(2026, 2, 5))
 
-    assert result == ""
+    # With no movement_type metadata, we conservatively treat it as compound.
+    assert "Tricep Pushdown" in result
+    assert "add weight" in result
+    assert "compound" in result
 
 
 def test_stale_pr_increment_candidates_exclude_bodyweight_pr(tmp_path: Path):

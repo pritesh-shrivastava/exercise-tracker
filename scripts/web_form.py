@@ -25,12 +25,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tracker.core import ensure_db, now_ist  # noqa: E402
-from tracker.exercises import (  # noqa: E402
-    BODY_PART_CHOICES,
-    EQUIPMENT_CHOICES,
-    LOG_ROW_COUNT,
-    VARIATION_CHOICES,
-)
 from tracker.models import (  # noqa: E402
     BODY_PART_VALUES,
     EQUIPMENT_VALUES,
@@ -47,6 +41,23 @@ from tracker.reports import (  # noqa: E402
     pr_display_rows,
     progression_series,
 )
+
+# Keep form choice lists local to the web form.
+VARIATION_CHOICES = ["default", "flat", "incline", "decline", "short grip", "wide grip", "reverse grip"]
+EQUIPMENT_CHOICES = [
+    "",
+    "bodyweight",
+    "dumbbells",
+    "barbell",
+    "machine",
+    "cable",
+    "kettlebell",
+    "smith machine",
+    "band",
+    "other",
+]
+BODY_PART_CHOICES = [""] + BODY_PART_ORDER
+LOG_ROW_COUNT = 6
 
 DEFAULT_DB = REPO_ROOT / "data" / "workouts.sqlite"
 FORM_TOKENS: set[str] = set()
@@ -264,16 +275,29 @@ def insert_form_rows(db_path: Path, rows: list[FormRow]) -> list[sqlite3.Row]:
                 raise RuntimeError("SQLite insert did not return a row id")
             inserted_ids.append(cur.lastrowid)
 
-            # Keep exercise_meta.body_part in sync (canonical store).
-            if row.body_part:
-                conn.execute(
-                    """
-                    INSERT INTO exercise_meta (exercise, movement_type, body_part)
-                    VALUES (?, 'compound', ?)
-                    ON CONFLICT(exercise) DO UPDATE SET body_part = excluded.body_part
-                    """,
-                    (row.exercise, row.body_part),
+            # Keep exercise_meta in sync (canonical store).
+            conn.execute(
+                """
+                INSERT INTO exercise_meta (exercise, movement_type, body_part, equipment, per_hand)
+                VALUES (
+                    ?,
+                    CASE
+                        WHEN ? IN ('dumbbells') THEN 'compound'
+                        WHEN ? IN ('barbell','machine','cable') THEN 'compound'
+                        WHEN ? IN ('bodyweight','kettlebell','smith machine','band','other','') THEN 'compound'
+                        ELSE 'compound'
+                    END,
+                    ?,
+                    ?,
+                    ?
                 )
+                ON CONFLICT(exercise) DO UPDATE SET
+                    body_part = CASE WHEN excluded.body_part != '' THEN excluded.body_part ELSE exercise_meta.body_part END,
+                    equipment = CASE WHEN excluded.equipment != '' THEN excluded.equipment ELSE exercise_meta.equipment END,
+                    per_hand = CASE WHEN excluded.per_hand != 0 THEN excluded.per_hand ELSE exercise_meta.per_hand END
+                """,
+                (row.exercise, row.equipment or '', row.equipment or '', row.equipment or '', row.body_part or '', row.equipment or '', int(row.per_hand)),
+            )
         conn.commit()
         return _fetch_rows_by_ids(conn, inserted_ids)
 
@@ -306,16 +330,29 @@ def update_form_row(db_path: Path, row_id: int, row: FormRow) -> sqlite3.Row:
             ),
         )
 
-        # Keep exercise_meta.body_part in sync (canonical store).
-        if row.body_part:
-            conn.execute(
-                """
-                INSERT INTO exercise_meta (exercise, movement_type, body_part)
-                VALUES (?, 'compound', ?)
-                ON CONFLICT(exercise) DO UPDATE SET body_part = excluded.body_part
-                """,
-                (row.exercise, row.body_part),
+        # Keep exercise_meta in sync (canonical store).
+        conn.execute(
+            """
+            INSERT INTO exercise_meta (exercise, movement_type, body_part, equipment, per_hand)
+            VALUES (
+                ?,
+                CASE
+                    WHEN ? IN ('dumbbells') THEN 'compound'
+                    WHEN ? IN ('barbell','machine','cable') THEN 'compound'
+                    WHEN ? IN ('bodyweight','kettlebell','smith machine','band','other','') THEN 'compound'
+                    ELSE 'compound'
+                END,
+                ?,
+                ?,
+                ?
             )
+            ON CONFLICT(exercise) DO UPDATE SET
+                body_part = CASE WHEN excluded.body_part != '' THEN excluded.body_part ELSE exercise_meta.body_part END,
+                equipment = CASE WHEN excluded.equipment != '' THEN excluded.equipment ELSE exercise_meta.equipment END,
+                per_hand = CASE WHEN excluded.per_hand != 0 THEN excluded.per_hand ELSE exercise_meta.per_hand END
+            """,
+            (row.exercise, row.equipment or '', row.equipment or '', row.equipment or '', row.body_part or '', row.equipment or '', int(row.per_hand)),
+        )
 
         conn.commit()
         fetched = _fetch_rows_by_ids(conn, [row_id])
@@ -394,7 +431,14 @@ def fetch_recent_exercise_names(db_path: Path, limit: int = RECENT_EXERCISE_LIMI
             """,
             (limit,),
         ))
-    return [str(row["exercise"]) for row in rows]
+    return [str(row[0]) for row in rows]
+
+
+def _exercise_meta_set(db_path: Path) -> set[str]:
+    """Return the set of exercises present in exercise_meta."""
+    ensure_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        return {str(row[0]) for row in conn.execute("SELECT exercise FROM exercise_meta")}
 
 
 def _flatten_form(data: dict[str, list[str]]) -> dict[str, str]:
@@ -655,16 +699,17 @@ def _labelled_options(values: list[tuple[str, str]], selected: str) -> str:
     )
 
 
-def _exercise_options(selected: str, *, recent_exercises: list[str] | None = None) -> str:
+def _exercise_options(selected: str, *, recent_exercises: list[str] | None = None, db_path: Path | None = None) -> str:
     """Exercise dropdown options grouped by canonical body_part from exercise_meta.
 
     We intentionally do NOT render a separate "Recent" optgroup.
     """
 
-    # Use the real DB for canonical exercise metadata. This keeps the dropdown
-    # in sync with exercise_meta rather than hardcoded EXERCISE_GROUPS.
-    ensure_db(DEFAULT_DB)
-    with sqlite3.connect(DEFAULT_DB) as conn:
+    # Use the provided DB for canonical exercise metadata.
+    # This keeps the dropdown in sync with exercise_meta rather than hardcoded lists.
+    db_path = db_path or DEFAULT_DB
+    ensure_db(db_path)
+    with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         rows = list(conn.execute(
             """
@@ -678,6 +723,15 @@ def _exercise_options(selected: str, *, recent_exercises: list[str] | None = Non
         ))
 
     meta: dict[str, sqlite3.Row] = {str(row["exercise"]): row for row in rows}
+
+    # If the DB has no exercise_meta rows (fresh/empty DB), fall back to showing
+    # any recent exercises so the form is usable in tests and bootstrapping.
+    if not meta:
+        recent_exercises = recent_exercises or []
+        opts = [f'<option value="{_escape(e)}">{_escape(e)}</option>' for e in recent_exercises]
+        if selected and selected not in recent_exercises:
+            opts.insert(0, f'<option value="{_escape(selected)}" selected>{_escape(selected)}</option>')
+        return '<option value=""></option>' + "".join(opts)
 
     # Group by body_part in BODY_PART_ORDER, with a final 'Other' bucket
     # for exercises missing metadata or missing body_part.
@@ -783,7 +837,7 @@ def _row_fields(
   {date_field}
   <label class="exercise">Exercise
     <select name="{prefix}exercise" data-exercise-select>
-      {_exercise_options(str(exercise), recent_exercises=recent_exercises)}
+      {_exercise_options(str(exercise), recent_exercises=recent_exercises, db_path=DEFAULT_DB)}
     </select>
   </label>
   <label class="custom-exercise">Custom exercise

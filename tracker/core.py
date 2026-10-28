@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from tracker.exercises import EXERCISE_DEFAULT_BODY_PART, EXERCISE_DEFAULT_MOVEMENT_TYPE
 from tracker.models import VALID_VARIATIONS
 from tracker.reports import body_part, row_body_part
 
@@ -91,35 +90,8 @@ def ensure_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE exercise_meta ADD COLUMN equipment TEXT NOT NULL DEFAULT ''")
         if "per_hand" not in meta_cols:
             conn.execute("ALTER TABLE exercise_meta ADD COLUMN per_hand INTEGER NOT NULL DEFAULT 0")
-        # Seed defaults idempotently.
-        # We don't delete anything (manual overrides or older exercises stay intact).
-        for exercise, movement_type in EXERCISE_DEFAULT_MOVEMENT_TYPE.items():
-            conn.execute(
-                "INSERT OR IGNORE INTO exercise_meta (exercise, movement_type) VALUES (?, ?)",
-                (exercise, movement_type),
-            )
-        for exercise, part in EXERCISE_DEFAULT_BODY_PART.items():
-            if not part:
-                continue
-            conn.execute(
-                "UPDATE exercise_meta SET body_part = ? WHERE exercise = ? AND (body_part IS NULL OR body_part = '')",
-                (part, exercise),
-            )
-
-        # Seed equipment/per_hand from defaults.
-        from tracker.exercises import EXERCISE_DEFAULT_EQUIPMENT, EXERCISE_DEFAULT_PER_HAND
-        for exercise, equip in EXERCISE_DEFAULT_EQUIPMENT.items():
-            if not equip:
-                continue
-            conn.execute(
-                "UPDATE exercise_meta SET equipment = ? WHERE exercise = ? AND (equipment IS NULL OR equipment = '')",
-                (equip, exercise),
-            )
-        for exercise in EXERCISE_DEFAULT_PER_HAND:
-            conn.execute(
-                "UPDATE exercise_meta SET per_hand = 1 WHERE exercise = ?",
-                (exercise,),
-            )
+        # exercise_meta is the canonical source for dropdown defaults.
+        # We intentionally do NOT seed from a hardcoded python list.
         # Classifier fallback for any remaining blanks.
         for (exercise,) in conn.execute(
             "SELECT DISTINCT exercise FROM workouts WHERE exercise NOT IN (SELECT exercise FROM exercise_meta)"
@@ -131,6 +103,26 @@ def ensure_db(db_path: Path) -> None:
         conn.execute(
             "UPDATE exercise_meta SET body_part = ? WHERE (body_part IS NULL OR body_part = '')",
             ("",),
+        )
+
+        # Ensure every exercise_meta row has a non-empty equipment default.
+        # For existing DBs that predate canonical equipment, infer from name.
+        conn.execute(
+            """
+            UPDATE exercise_meta
+            SET equipment = CASE
+                WHEN lower(exercise) LIKE '%dumbbell%' THEN 'dumbbells'
+                WHEN lower(exercise) LIKE '%kettlebell%' OR lower(exercise) LIKE '%kettleball%' THEN 'kettlebell'
+                WHEN lower(exercise) LIKE '%barbell%' THEN 'barbell'
+                WHEN lower(exercise) LIKE '%cable%' OR lower(exercise) LIKE '%pulldown%' OR lower(exercise) LIKE '%pull down%' THEN 'cable'
+                WHEN lower(exercise) LIKE '%machine%' THEN 'machine'
+                WHEN lower(exercise) LIKE '%smith%' THEN 'smith machine'
+                WHEN lower(exercise) LIKE '%band%' THEN 'band'
+                WHEN lower(exercise) LIKE '%bodyweight%' OR lower(exercise) LIKE '%push up%' OR lower(exercise) LIKE '%pull up%' OR lower(exercise) LIKE '%plank%' THEN 'bodyweight'
+                ELSE 'other'
+            END
+            WHERE equipment IS NULL OR equipment = ''
+            """
         )
 
         valid_variations = "', '".join(sorted(VALID_VARIATIONS))

@@ -133,7 +133,7 @@ def body_part(exercise: str) -> str:
 
 def row_body_part(exercise: str, stored_body_part: str | None = None) -> str:
     """Return the saved body-part tag when valid, otherwise infer from exercise."""
-    if stored_body_part in BODY_PART_ORDER:
+    if stored_body_part and stored_body_part in BODY_PART_ORDER:
         return stored_body_part
     return body_part(exercise)
 
@@ -156,8 +156,8 @@ def _load_rows(db_path: Path) -> list[PRRow]:
             SELECT w.workout_date, w.exercise, COALESCE(w.variation, 'default') AS variation,
                    w.details, w.raw_text, COALESCE(w.sets, 0) AS sets, COALESCE(w.reps, 0) AS reps,
                    w.weight_kg, COALESCE(m.equipment, '') AS equipment,
-                   COALESCE(m.per_hand, 0) AS per_hand, {body_part_select},
-                   COALESCE(m.movement_type, '') AS movement_type
+                   COALESCE(w.per_hand, m.per_hand, 0) AS per_hand, {body_part_select},
+                   COALESCE(m.movement_type, CASE WHEN COALESCE(m.equipment, '') IN ('barbell','machine','cable') THEN 'compound' ELSE '' END) AS movement_type
             {from_clause} WHERE w.workout_type = 'strength'
             ORDER BY w.workout_date, w.id
             """
@@ -168,7 +168,7 @@ def _load_rows(db_path: Path) -> list[PRRow]:
 def _best_sets(rows: Iterable[PRRow]) -> dict[tuple[str, str], PRRow]:
     best: dict[tuple[str, str], tuple[tuple, PRRow]] = {}
     for row in rows:
-        key = (row.exercise, row.variation or "flat")
+        key = (row.exercise, row.variation or "default")
         assisted = "assisted" in row.exercise.lower()
         # Assisted movements treat lower assistance weight as better.
         # For all other movements, higher weight remains better.
@@ -392,7 +392,7 @@ def _target_reps_for_movement(movement_type: str) -> int:
 def _movement_target_label(movement_type: str) -> str:
     target = _target_reps_for_movement(movement_type)
     kind = movement_type if movement_type else "unknown"
-    return f"{kind}  {target} reps"
+    return f"{kind} · {target} reps"
 
 
 def format_stale_pr_increment_candidates(
