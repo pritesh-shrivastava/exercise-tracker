@@ -44,7 +44,26 @@ The preferred always-on setup runs the Python form on localhost under systemd, t
 
 ```bash
 cd /home/azureuser/exercise-tracker
-sudo cp scripts/exercise-web-form.service /etc/systemd/system/exercise-web-form.service
+sudo tee /etc/systemd/system/exercise-web-form.service >/dev/null <<'UNIT'
+[Unit]
+Description=Exercise Tracker private web form
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=azureuser
+Group=azureuser
+WorkingDirectory=/home/azureuser/exercise-tracker
+Environment=HOME=/home/azureuser
+Environment=PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/azureuser/.local/bin/uv run python -m tracker.web_form --host 127.0.0.1 --port 8765
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
 sudo systemctl daemon-reload
 sudo systemctl enable --now exercise-web-form.service
 sudo tailscale serve --bg --http=8765 localhost:8765
