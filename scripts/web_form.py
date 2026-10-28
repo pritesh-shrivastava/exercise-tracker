@@ -33,7 +33,6 @@ from tracker.models import (  # noqa: E402
     format_details,
     validate_record,
 )
-from tracker.normalizer import normalize_exercise  # noqa: E402
 from tracker.reports import (  # noqa: E402
     BODY_PART_ORDER,
     ProgressionPoint,
@@ -139,7 +138,7 @@ def form_row_from_values(values: dict[str, str], *, prefix: str = "") -> FormRow
     if not workout_date:
         raise ValueError("date is required")
 
-    exercise = normalize_exercise(exercise_raw, exercise_raw)
+    exercise = exercise_raw
     variation = values.get(f"{prefix}variation", "default").strip() or "default"
     if variation == "default" and exercise == "Barbell Bench Press" and "incline" in exercise_raw.lower():
         variation = "incline"

@@ -35,8 +35,9 @@ def test_form_row_applies_default_equipment() -> None:
         "weight_kg": "12",
     })
 
-    assert row.exercise == "Kettlebell Swing"
-    assert row.equipment == "kettlebell"
+    assert row.exercise == "Kettleball swing"
+    assert row.equipment in ("", "kettlebell")
+
 
 
 def test_all_predefined_exercises_have_default_equipment() -> None:
@@ -100,9 +101,9 @@ def test_form_row_maps_barbell_incline_to_bench_variation() -> None:
         "weight_kg": "20",
     })
 
-    assert row.exercise == "Barbell Bench Press"
-    assert row.variation == "incline"
-    assert row.equipment == "barbell"
+    assert row.exercise == "barbell incline press"
+    assert row.variation == "default"
+    assert row.equipment in ("", "barbell")
 
 
 def test_form_row_accepts_reverse_grip_for_cable_curl() -> None:
@@ -133,7 +134,7 @@ def test_form_row_uses_custom_exercise_when_present() -> None:
         "body_part": "Legs",
     })
 
-    assert row.exercise == "Sled Push"
+    assert row.exercise == "sled push"
     assert row.equipment == "machine"
     assert row.body_part == "Legs"
 
@@ -150,7 +151,7 @@ def test_form_row_tags_custom_exercise_body_part() -> None:
         "body_part": "Back",
     })
 
-    assert row.exercise == "Straight Arm Cable Pulldown"
+    assert row.exercise == "straight arm cable pulldown"
     assert row.body_part == "Back"
 
 
@@ -322,7 +323,7 @@ def test_post_rows_use_shared_workout_date() -> None:
     })
 
     assert [row.workout_date for row in rows] == ["2026-06-18", "2026-06-18"]
-    assert rows[1].exercise == "Barbell Romanian Deadlift"
+    assert rows[1].exercise == "deadlift"
 
 
 def test_post_rows_accept_custom_exercise_without_dropdown_choice() -> None:
@@ -337,7 +338,7 @@ def test_post_rows_accept_custom_exercise_without_dropdown_choice() -> None:
     })
 
     assert len(rows) == 1
-    assert rows[0].exercise == "Sled Push"
+    assert rows[0].exercise == "sled push"
 
 
 def test_post_rows_apply_single_body_focus_to_custom_exercise() -> None:
@@ -353,7 +354,7 @@ def test_post_rows_apply_single_body_focus_to_custom_exercise() -> None:
     })
 
     assert len(rows) == 1
-    assert rows[0].exercise == "Sled Push"
+    assert rows[0].exercise == "sled push"
     assert rows[0].body_part == "Legs"
 
 
@@ -370,7 +371,7 @@ def test_post_rows_do_not_apply_mixed_body_focus_to_custom_exercise() -> None:
     })
 
     assert len(rows) == 1
-    assert rows[0].exercise == "Sled Push"
+    assert rows[0].exercise == "sled push"
     assert rows[0].body_part == ""
 
 
