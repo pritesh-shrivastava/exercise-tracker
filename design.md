@@ -42,7 +42,7 @@ Important invariants:
 - Store total load in `weight_kg`. For dumbbells, `exercise_meta.per_hand=1` means display each-hand weight as `weight_kg / 2`.
 - `details` is derived display text; reports use structured fields.
 - `exercise_meta` is canonical for `body_part`/`equipment`/`per_hand`; reports fall back to name-based classification when body_part is blank.
-- Defaults are seeded from `tracker/exercises.py` into `exercise_meta` for new DBs.
+- `exercise_meta` is canonical; it is not seeded from a hardcoded Python list.
 - `ensure_db()` in `tracker/core.py` creates and auto-migrates missing columns.
 
 ## Entry Rules
@@ -56,13 +56,13 @@ Form pages:
 - `PRs` renders the same PR report path as `scripts/summary.py --prs`, with an optional `?part=BodyPart` filter.
 - `Progression` renders SVG weight-history charts from structured weighted rows, with an optional `?part=BodyPart` filter.
 
-The `Log` page's predefined exercise dropdown and defaults use `exercise_meta` as the canonical source. `tracker/exercises.py` is used only to seed `exercise_meta` for new databases.
+The `Log` page's predefined exercise dropdown and defaults use `exercise_meta` as the canonical source.
 
 The form runs on `127.0.0.1:8765` and is exposed privately with Tailscale Serve. It has no public-internet authentication layer, so do not bind it to a public interface without an auth proxy. HTML responses are gzip-compressed for clients that advertise support.
 
 ## Normalization
 
-`tracker/normalizer.py` owns canonical exercise names and typo recovery. Keep normalizer changes in code/tests, not in ad hoc database edits.
+There is no canonicalization/typo recovery layer in code. Exercise names are stored as entered in the form (including custom exercises and typos). This means reporting/PRs will treat differently-spelled names as different exercises unless you standardize your inputs.
 
 Variation rules:
 - Non-bench strength entries use `default` unless grip is meaningful.
@@ -90,7 +90,7 @@ Progressive overload (rep targets for "add weight"):
 - **Isolation exercises:** 15 reps
 - **Compound exercises:** 12 reps
 
-These targets are driven by `exercise_meta.movement_type` (seeded from `tracker/exercises.py`).
+These targets are driven by `exercise_meta.movement_type`.
 - Progression charts group by canonical exercise plus variation, ignore rows without `weight_kg`, require at least 3 weighted entries, and order charts by `BODY_PART_ORDER`.
 - Progression SVGs plot full weighted history; the compact table under each chart shows only the latest 3 entries.
 - The PR and progression pages both use `part` query-parameter filtering with values from `BODY_PART_ORDER`.
