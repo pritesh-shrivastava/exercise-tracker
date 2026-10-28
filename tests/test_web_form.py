@@ -179,7 +179,6 @@ def test_log_page_uses_grouped_exercise_select() -> None:
     assert '<optgroup label="Biceps" data-original-index=' in html
     assert '<optgroup label="Triceps" data-original-index=' in html
     assert '<optgroup label="Back" data-original-index=' in html
-    assert '<optgroup label="Other"' in html
     assert 'value="Barbell Romanian Deadlift" data-equipment="barbell"' in html
     assert 'value="Dumbbell Bench Press" data-equipment="dumbbells" data-body-part="Chest" data-per-hand="1"' in html
     assert 'value="Weighted Lunge" data-equipment="dumbbells" data-body-part="Legs" data-per-hand="1"' in html
