@@ -42,7 +42,16 @@ from tracker.reports import (  # noqa: E402
 )
 
 # Keep form choice lists local to the web form.
-VARIATION_CHOICES = ["default", "flat", "incline", "decline", "short grip", "wide grip", "reverse grip"]
+VARIATION_CHOICES = [
+    "default",
+    "flat",
+    "incline",
+    "decline",
+    "short grip",
+    "wide grip",
+    "reverse grip",
+    "negative",
+]
 EQUIPMENT_CHOICES = [
     "",
     "bodyweight",
@@ -860,7 +869,7 @@ def _render_rows(rows: list[sqlite3.Row], *, include_id: bool = True) -> str:
     for row in rows:
         weight = "" if row["weight_kg"] is None else f'{row["weight_kg"]:g}'
         per_hand = "yes" if row["per_hand"] else ""
-        variation = "" if row["variation"] == "default" else row["variation"]
+        variation = "" if row["variation"] in ("", "default") else row["variation"]
         id_cell = f"<td>{row['id']}</td>" if include_id else ""
         body.append(
             "<tr>"

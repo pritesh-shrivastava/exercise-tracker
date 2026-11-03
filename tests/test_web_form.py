@@ -4,6 +4,7 @@ import gzip
 import sqlite3
 from pathlib import Path
 
+from tracker.core import ensure_db
 from tracker.web_form import (
     FormRow,
     _html_response_bytes,
@@ -22,7 +23,6 @@ from tracker.web_form import (
     render_recent_page,
     update_form_row,
 )
-from tracker.core import ensure_db
 
 
 def test_form_row_applies_default_equipment() -> None:
@@ -475,6 +475,25 @@ def test_insert_form_rows_allows_reverse_grip_tricep_pushdown(tmp_path: Path) ->
 
     assert rows[0]["exercise"] == "Tricep Pushdown"
     assert rows[0]["variation"] == "reverse grip"
+
+
+def test_insert_form_rows_allows_negative_variation(tmp_path: Path) -> None:
+    db = tmp_path / "workouts.sqlite"
+    rows = insert_form_rows(db, [
+        FormRow(
+            workout_date="2026-06-16",
+            exercise="Pull Up",
+            variation="negative",
+            sets=3,
+            reps=5,
+            weight_kg=None,
+            equipment="bodyweight",
+            per_hand=False,
+        )
+    ])
+
+    assert rows[0]["exercise"] == "Pull Up"
+    assert rows[0]["variation"] == "negative"
 
 
 def test_update_form_row_re_reads_exact_row(tmp_path: Path) -> None:

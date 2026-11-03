@@ -29,6 +29,8 @@ VALID_VARIATIONS = frozenset({
     "short grip",
     "wide grip",
     "reverse grip",
+    # For assisted movements / eccentric-only reps.
+    "negative",
 })
 EQUIPMENT_VALUES = frozenset({
     "dumbbells", "barbell", "machine", "cable", "bodyweight",
